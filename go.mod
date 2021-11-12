@@ -160,16 +160,16 @@ require (
 	github.com/webx-top/chardet v0.0.1 // indirect
 	github.com/webx-top/client v0.3.7
 	github.com/webx-top/codec v0.1.1
-	github.com/webx-top/com v0.2.10
-	github.com/webx-top/db v1.15.21
+	github.com/webx-top/com v0.3.2
+	github.com/webx-top/db v1.17.0
 	github.com/webx-top/echo v2.22.17+incompatible
 	github.com/webx-top/echo-prometheus v1.0.10 // indirect
 	github.com/webx-top/image v0.0.9
 	github.com/webx-top/pagination v0.1.1
 	gocloud.dev v0.24.0
 	goftp.io/server/v2 v2.0.0
-	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
-	golang.org/x/net v0.0.0-20211101193420-4a448f8816b3
+	golang.org/x/crypto v0.0.0-20211108221036-ceb1ce70b4fa
+	golang.org/x/net v0.0.0-20211111160137-58aab5ef257a
 	google.golang.org/genproto v0.0.0-20211101144312-62acf1d99145 // indirect
 	gopkg.in/ini.v1 v1.63.2 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
@@ -313,7 +313,7 @@ require (
 	golang.org/x/mod v0.5.1 // indirect
 	golang.org/x/oauth2 v0.0.0-20211028175245-ba495a64dcb5 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	golang.org/x/sys v0.0.0-20211102061401-a2f17f7b995c // indirect
+	golang.org/x/sys v0.0.0-20211111213525-f221eed1c01e // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
 	golang.org/x/tools v0.1.7 // indirect
