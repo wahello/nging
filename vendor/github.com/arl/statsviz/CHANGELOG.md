@@ -1,9 +1,15 @@
+Unreleased yet
+==============
+  * Polishing (README, small UI improvements)
+  * Assets are `go:embed`ed, so the minimum go version is now go1.16
+  * Small ui improvements: link to go.dev rather than golang.org
+
 v0.4.0 / 2021-05-08
 ==================
 
   * Auto-reconnect to new server from GUI after closed websocket connection (#49)
   * Reorganize examples
-  * Make IndexAtRoot returns an `http.HandlerFunc` instead of `http.Handler`
+  * Make `IndexAtRoot` returns an `http.HandlerFunc` instead of `http.Handler`
 
 v0.3.0 / 2021-02-14
 ==================
