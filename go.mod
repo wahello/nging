@@ -113,7 +113,7 @@ require (
 	github.com/goccy/go-json v0.7.10 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/golang/glog v1.0.0 // indirect
-	github.com/gomodule/redigo v1.8.5
+	github.com/gomodule/redigo v1.8.8
 	github.com/grafov/m3u8 v0.11.1 // indirect
 	github.com/grandcat/zeroconf v1.0.0 // indirect
 	github.com/hashicorp/consul/api v1.11.0 // indirect

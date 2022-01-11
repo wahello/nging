@@ -738,8 +738,8 @@ github.com/golang/protobuf/ptypes/timestamp
 # github.com/golang/snappy v0.0.4
 ## explicit
 github.com/golang/snappy
-# github.com/gomodule/redigo v1.8.5
-## explicit; go 1.14
+# github.com/gomodule/redigo v1.8.8
+## explicit; go 1.16
 github.com/gomodule/redigo/redis
 # github.com/google/uuid v1.3.0
 ## explicit
