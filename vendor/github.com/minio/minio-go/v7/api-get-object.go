@@ -24,6 +24,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"sync"
 
 	"github.com/minio/minio-go/v7/pkg/s3utils"
@@ -139,7 +140,7 @@ func (c *Client) GetObject(ctx context.Context, bucketName, objectName string, o
 
 						// Remove range header if already set, for stat Operations to get original file size.
 						delete(opts.headers, "Range")
-						objectInfo, err = c.statObject(ctx, bucketName, objectName, StatObjectOptions(opts))
+						objectInfo, err = c.StatObject(ctx, bucketName, objectName, StatObjectOptions(opts))
 						if err != nil {
 							resCh <- getResponse{
 								Error: err,
@@ -162,7 +163,7 @@ func (c *Client) GetObject(ctx context.Context, bucketName, objectName string, o
 					if etag != "" && !snowball {
 						opts.SetMatchETag(etag)
 					}
-					objectInfo, err := c.statObject(ctx, bucketName, objectName, StatObjectOptions(opts))
+					objectInfo, err := c.StatObject(ctx, bucketName, objectName, StatObjectOptions(opts))
 					if err != nil {
 						resCh <- getResponse{
 							Error: err,
@@ -651,6 +652,9 @@ func (c *Client) getObject(ctx context.Context, bucketName, objectName string, o
 	urlValues := make(url.Values)
 	if opts.VersionID != "" {
 		urlValues.Set("versionId", opts.VersionID)
+	}
+	if opts.PartNumber > 0 {
+		urlValues.Set("partNumber", strconv.Itoa(opts.PartNumber))
 	}
 
 	// Execute GET on objectName.
