@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"time"
+	"sync"
 
 	"github.com/webx-top/db"
 	"github.com/webx-top/db/lib/sqlbuilder"
@@ -24,12 +24,34 @@ var (
 		return strings.Split(tag, `,`)
 	}
 
-	ErrExpectingStruct = errors.New(`bean must be an address of struct or struct.`)
+	ErrExpectingStruct = errors.New(`bean must be an address of struct or struct`)
 	_                  = gob.Register
 )
 
-func init() {
-	//gob.Register(&Param{})
+func NewJoin(joinType string, collection string, alias string, condition string) *Join {
+	return &Join{
+		Collection: collection,
+		Alias:      alias,
+		Condition:  condition,
+		Type:       joinType,
+	}
+}
+
+var paramPool = sync.Pool{
+	New: func() interface{} {
+		p := NewParam()
+		p.inPool = true
+		return p
+	},
+}
+
+func ParamPoolGet() *Param {
+	return paramPool.Get().(*Param)
+}
+
+func ParamPoolRelease(c *Param) {
+	c.Reset()
+	paramPool.Put(c)
 }
 
 type Join struct {
@@ -40,45 +62,76 @@ type Join struct {
 }
 
 type Param struct {
-	ctx                    context.Context
-	factory                *Factory
-	Index                  int //数据库对象元素所在的索引位置
-	ReadOnly               bool
-	Collection             string //集合名或表名称
-	Alias                  string //表别名
-	Middleware             func(db.Result) db.Result
-	MiddlewareName         string
-	SelectorMiddleware     func(sqlbuilder.Selector) sqlbuilder.Selector
-	SelectorMiddlewareName string
-	TxMiddleware           func(*Transaction) error
-	ResultData             interface{}   //查询后保存的结果
-	Args                   []interface{} //Find方法的条件参数
-	Cols                   []interface{} //使用Selector要查询的列
-	Joins                  []*Join
-	SaveData               interface{} //增加和更改数据时要保存到数据库中的数据
-	Offset                 int
-	Page                   int           //页码
-	Size                   int           //每页数据量
-	Total                  int64         //数据表中符合条件的数据行数
-	MaxAge                 time.Duration //缓存有效时间（单位：秒），为0时代表临时关闭缓存，为-1时代表删除缓存
-	trans                  *Transaction
-	cachedKey              string
-	setter                 *Setting
-	cluster                *Cluster
-	model                  Model
+	inPool             bool
+	noRelease          bool
+	ctx                context.Context
+	factory            *Factory
+	index              int //数据库对象元素所在的索引位置
+	readOnly           bool
+	collection         string //集合名或表名称
+	alias              string //表别名
+	middleware         func(db.Result) db.Result
+	middlewareName     string
+	middlewareSelector func(sqlbuilder.Selector) sqlbuilder.Selector
+	middlewareTx       func(*Transaction) error
+	result             interface{}   //查询后保存的结果
+	args               []interface{} //Find方法的条件参数
+	cols               []interface{} //使用Selector要查询的列
+	joins              []*Join
+	save               interface{} //增加和更改数据时要保存到数据库中的数据
+	offset             int
+	page               int   //页码
+	size               int   //每页数据量
+	total              int64 //数据表中符合条件的数据行数
+	maxAge             int64 //缓存有效时间（单位：秒），为0时代表临时关闭缓存，为-1时代表删除缓存
+	trans              *Transaction
+	cachedKey          string
+	cluster            *Cluster
+	model              Model
 }
 
 func NewParam(args ...interface{}) *Param {
 	p := &Param{
 		factory: DefaultFactory,
-		Args:    make([]interface{}, 0),
-		Cols:    make([]interface{}, 0),
-		Joins:   make([]*Join, 0),
-		Page:    1,
-		Offset:  -1,
+		page:    1,
+		offset:  -1,
 	}
 	p.init(args...)
 	return p
+}
+
+func (p *Param) Reset() {
+	p.noRelease = false
+	p.ctx = nil
+	//p.factory = nil
+	p.index = 0
+	p.readOnly = false
+	p.collection = ``
+	p.alias = ``
+	p.middleware = nil
+	p.middlewareName = ``
+	p.middlewareSelector = nil
+	p.middlewareTx = nil
+	p.result = nil
+	p.args = nil
+	p.cols = nil
+	p.joins = nil
+	p.save = nil
+	p.offset = -1
+	p.page = 1
+	p.size = 0
+	p.total = 0
+	p.maxAge = 0
+	p.trans = nil
+	p.cachedKey = ``
+	p.cluster = nil
+	p.model = nil
+}
+
+func (p *Param) Release() {
+	if p.inPool && !p.noRelease {
+		ParamPoolRelease(p)
+	}
 }
 
 func (p *Param) init(args ...interface{}) *Param {
@@ -92,21 +145,23 @@ func (p *Param) init(args ...interface{}) *Param {
 				p.TransFrom(param)
 				continue
 			}
+			if option, ok := v.(ParamOption); ok {
+				option(p)
+			}
 		}
 	}
-	//p.setter = &Setting{Param: p}
 	return p
 }
 
-func (p *Param) Setter() *Setting {
-	if p.setter == nil {
-		p.setter = &Setting{Param: p}
+func (p *Param) Set(opts ...ParamOption) *Param {
+	for _, o := range opts {
+		o(p)
 	}
-	return p.setter
+	return p
 }
 
 func (p *Param) SetIndex(index int) *Param {
-	p.Index = index
+	p.index = index
 	return p
 }
 
@@ -125,6 +180,9 @@ func (p *Param) Context() context.Context {
 func (p *Param) SetModel(model Model) *Param {
 	p.model = model
 	p.trans = model.Trans()
+	if len(p.collection) == 0 {
+		p.collection = model.Name_()
+	}
 	return p
 }
 
@@ -133,19 +191,24 @@ func (p *Param) Model() Model {
 }
 
 func (p *Param) SelectLink(index int) *Param {
-	p.Index = index
+	p.index = index
+	return p
+}
+
+func (p *Param) SelectLinkName(name string) *Param {
+	p.index = p.factory.IndexByName(name)
 	return p
 }
 
 func (p *Param) CachedKey() string {
 	if len(p.cachedKey) == 0 {
-		p.cachedKey = fmt.Sprintf(`%v-%v-%v-%v-%v-%v-%v-%v-%v-%v`, p.Index, p.Collection, p.Cols, p.Args, p.Offset, p.Page, p.Size, p.Joins, p.MiddlewareName, p.SelectorMiddlewareName)
+		p.cachedKey = fmt.Sprintf(`%v-%v-%v-%v-%v-%v-%v-%v-%v`, p.index, p.collection, p.cols, p.args, p.offset, p.page, p.size, p.joins, p.middlewareName)
 	}
 	return p.cachedKey
 }
 
-func (p *Param) SetCache(maxAge time.Duration, key ...string) *Param {
-	p.MaxAge = maxAge
+func (p *Param) SetCache(maxAge int64, key ...string) *Param {
+	p.maxAge = maxAge
 	if len(key) > 0 {
 		p.cachedKey = key[0]
 	}
@@ -158,14 +221,14 @@ func (p *Param) SetCachedKey(key string) *Param {
 }
 
 func (p *Param) SetJoin(joins ...*Join) *Param {
-	p.Joins = joins
+	p.joins = joins
 	return p
 }
 
 func (p *Param) SetTx(tx sqlbuilder.Tx) *Param {
 	p.trans = &Transaction{
-		Tx:      tx,
-		Factory: p.factory,
+		tx:      tx,
+		factory: p.factory,
 	}
 	return p
 }
@@ -176,43 +239,38 @@ func (p *Param) SetTrans(trans *Transaction) *Param {
 }
 
 func (p *Param) SetRead() *Param {
-	p.ReadOnly = true
+	p.readOnly = true
 	return p
 }
 
 func (p *Param) SetWrite() *Param {
-	p.ReadOnly = false
+	p.readOnly = false
 	return p
 }
 
 func (p *Param) AddJoin(joinType string, collection string, alias string, condition string) *Param {
-	p.Joins = append(p.Joins, &Join{
-		Collection: collection,
-		Alias:      alias,
-		Condition:  condition,
-		Type:       joinType,
-	})
+	p.joins = append(p.joins, NewJoin(joinType, collection, alias, condition))
 	return p
 }
 
 func (p *Param) SetCollection(collection string, alias ...string) *Param {
-	p.Collection = collection
+	p.collection = collection
 	if len(alias) > 0 {
-		p.Alias = alias[0]
+		p.alias = alias[0]
 	}
 	return p
 }
 
 func (p *Param) SetAlias(alias string) *Param {
-	p.Alias = alias
+	p.alias = alias
 	return p
 }
 
 func (p *Param) TableName() string {
-	if len(p.Alias) > 0 {
-		return p.Collection + ` ` + p.Alias
+	if len(p.alias) > 0 {
+		return p.collection + ` ` + p.alias
 	}
-	return p.Collection
+	return p.collection
 }
 
 func (p *Param) TableField(m interface{}, structField *string, tableField ...*string) *Param {
@@ -241,8 +299,8 @@ func (p *Param) TableField(m interface{}, structField *string, tableField ...*st
 			field = tags[0]
 		}
 		*tblField = field
-		if len(p.Alias) > 0 {
-			*tblField = p.Alias + `.` + *tblField
+		if len(p.alias) > 0 {
+			*tblField = p.alias + `.` + *tblField
 		}
 		return p
 	}
@@ -299,14 +357,14 @@ func (p *Param) TableField(m interface{}, structField *string, tableField ...*st
 		if tags, ok := tag.([]string); ok && len(tags) > 0 && len(tags[0]) > 0 {
 			table = tags[0]
 		}
-		if len(p.Joins) > 0 {
+		if len(p.joins) > 0 {
 			var rawTableName string
 			if len(table) < 1 {
 				rawTableName = ToSnakeCase(rt.Name())
 			} else {
 				rawTableName = table
 			}
-			for _, jo := range p.Joins {
+			for _, jo := range p.joins {
 				if jo.Collection == rawTableName {
 					if len(jo.Alias) > 0 {
 						table = jo.Alias
@@ -319,8 +377,8 @@ func (p *Param) TableField(m interface{}, structField *string, tableField ...*st
 		}
 
 		if len(table) == 0 {
-			if len(p.Alias) > 0 {
-				table = p.Alias
+			if len(p.alias) > 0 {
+				table = p.alias
 			} else {
 				table = v
 			}
@@ -331,17 +389,17 @@ func (p *Param) TableField(m interface{}, structField *string, tableField ...*st
 }
 
 func (p *Param) SetMiddleware(middleware func(db.Result) db.Result, name ...string) *Param {
-	p.Middleware = middleware
+	p.middleware = middleware
 	if len(name) > 0 {
-		p.MiddlewareName = name[0]
+		p.middlewareName = name[0]
 	}
 	return p
 }
 
-func (p *Param) SetSelectorMiddleware(middleware func(sqlbuilder.Selector) sqlbuilder.Selector, name ...string) *Param {
-	p.SelectorMiddleware = middleware
+func (p *Param) SetMiddlewareSelector(middleware func(sqlbuilder.Selector) sqlbuilder.Selector, name ...string) *Param {
+	p.middlewareSelector = middleware
 	if len(name) > 0 {
-		p.SelectorMiddlewareName = name[0]
+		p.middlewareName = name[0]
 	}
 	return p
 }
@@ -352,74 +410,82 @@ func (p *Param) SetMW(middleware func(db.Result) db.Result, name ...string) *Par
 	return p
 }
 
-func (p *Param) SetTxMiddleware(middleware func(*Transaction) error) *Param {
-	p.TxMiddleware = middleware
+func (p *Param) SetMiddlewareTx(middleware func(*Transaction) error) *Param {
+	p.middlewareTx = middleware
 	return p
 }
 
-func (p *Param) SetTxMW(middleware func(*Transaction) error) *Param {
-	p.SetTxMiddleware(middleware)
+func (p *Param) SetMWTx(middleware func(*Transaction) error) *Param {
+	p.SetMiddlewareTx(middleware)
 	return p
 }
 
 // SetSelMW is SetSelectorMiddleware's alias.
-func (p *Param) SetSelMW(middleware func(sqlbuilder.Selector) sqlbuilder.Selector, name ...string) *Param {
-	p.SetSelectorMiddleware(middleware, name...)
+func (p *Param) SetMWSel(middleware func(sqlbuilder.Selector) sqlbuilder.Selector, name ...string) *Param {
+	p.SetMiddlewareSelector(middleware, name...)
 	return p
 }
 
 func (p *Param) SetRecv(result interface{}) *Param {
-	p.ResultData = result
+	p.result = result
 	return p
 }
 
+func (p *Param) Recv() interface{} {
+	return p.result
+}
+
 func (p *Param) SetArgs(args ...interface{}) *Param {
-	p.Args = args
+	p.args = args
 	return p
 }
 
 func (p *Param) AddArgs(args ...interface{}) *Param {
-	p.Args = append(p.Args, args...)
+	p.args = append(p.args, args...)
 	return p
 }
 
 func (p *Param) SetCols(args ...interface{}) *Param {
-	p.Cols = args
+	p.cols = args
 	return p
 }
 
 func (p *Param) AddCols(args ...interface{}) *Param {
-	p.Cols = append(p.Cols, args...)
+	p.cols = append(p.cols, args...)
 	return p
 }
 
 func (p *Param) SetSend(save interface{}) *Param {
-	p.SaveData = save
+	p.save = save
 	return p
 }
 
 func (p *Param) SetPage(n int) *Param {
 	if n < 1 {
-		p.Page = 1
+		p.page = 1
 	} else {
-		p.Page = n
+		p.page = n
 	}
 	return p
 }
 
 func (p *Param) SetOffset(offset int) *Param {
-	p.Offset = offset
+	p.offset = offset
 	return p
 }
 
 func (p *Param) SetSize(size int) *Param {
-	p.Size = size
+	p.size = size
 	return p
 }
 
 func (p *Param) SetTotal(total int64) *Param {
-	p.Total = total
+	p.total = total
 	return p
+}
+
+func (p *Param) Total() int64 {
+	return p.total
 }
 
 func (p *Param) Trans() *Transaction {
@@ -437,20 +503,20 @@ func (p *Param) TransFrom(param *Param) *Param {
 }
 
 func (p *Param) GetOffset() int {
-	if p.Offset > -1 {
-		return p.Offset
+	if p.offset > -1 {
+		return p.offset
 	}
-	if p.Size < 0 {
+	if p.size < 0 {
 		return 0
 	}
-	if p.Page < 1 {
-		p.Page = 1
+	if p.page < 1 {
+		p.page = 1
 	}
-	return (p.Page - 1) * p.Size
+	return (p.page - 1) * p.size
 }
 
 func (p *Param) NewTx(ctx context.Context) (*Transaction, error) {
-	return p.factory.NewTx(ctx, p.Index)
+	return p.factory.NewTx(ctx, p.index)
 }
 
 func (p *Param) Tx(ctx context.Context) error {
@@ -477,18 +543,18 @@ func (p *Param) MustBegin(ctx context.Context) *Param {
 
 func (p *Param) Rollback(ctx context.Context) error {
 	t := p.T()
-	if t.Tx == nil {
+	if t.tx == nil {
 		return nil
 	}
-	return t.Rollback()
+	return t.tx.Rollback()
 }
 
 func (p *Param) Commit(ctx context.Context) error {
 	t := p.T()
-	if t.Tx == nil {
+	if t.tx == nil {
 		return nil
 	}
-	return t.Commit()
+	return t.tx.Commit()
 }
 
 func (p *Param) End(ctx context.Context, succeed bool) error {
@@ -526,6 +592,12 @@ func (p *Param) SQLBuilder() sqlbuilder.SQLBuilder {
 }
 
 // Read ==========================
+
+// Cached query support cache
+func (p *Param) Cached(cachedKey string, fn func(*Param) error, maxAge int64) error {
+	p.SetCache(maxAge, cachedKey)
+	return p.T().Cached(p, fn)
+}
 
 // Query query SQL. sqlRows is an *sql.Rows object, so you can use Scan() on it
 // err = sqlRows.Scan(&a, &b, ...)
@@ -617,6 +689,14 @@ func (p *Param) UpdateByStruct(bean interface{}, fields ...string) error {
 		return err
 	}
 	return p.T().Update(p)
+}
+
+func (p *Param) UpdatexByStruct(bean interface{}, fields ...string) (int64, error) {
+	err := p.UsingStructField(bean)
+	if err != nil {
+		return 0, err
+	}
+	return p.T().Updatex(p)
 }
 
 func (p *Param) Update() error {
