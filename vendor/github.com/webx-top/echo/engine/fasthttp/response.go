@@ -1,18 +1,20 @@
+//go:build !appengine
 // +build !appengine
 
 package fasthttp
 
 import (
-	"bufio"
 	"errors"
 	"io"
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/admpub/fasthttp"
 	"github.com/admpub/log"
 
+	"github.com/webx-top/echo"
 	"github.com/webx-top/echo/engine"
 	"github.com/webx-top/echo/logger"
 )
@@ -20,7 +22,7 @@ import (
 var ErrAlreadyCommitted = errors.New(`response already committed`)
 
 type Response struct {
-	*fasthttp.RequestCtx
+	request           *Request
 	header            engine.Header
 	status            int
 	size              int64
@@ -30,17 +32,20 @@ type Response struct {
 	stdResponseWriter http.ResponseWriter
 }
 
-func NewResponse(c *fasthttp.RequestCtx) *Response {
+func NewResponse(r *Request) *Response {
 	return &Response{
-		RequestCtx: c,
-		header:     &ResponseHeader{header: &c.Response.Header, stdhdr: nil},
-		writer:     c,
-		logger:     log.New("echo"),
+		request: r,
+		header: &ResponseHeader{
+			header: &r.context.Response.Header,
+			stdhdr: nil,
+		},
+		writer: r.context,
+		logger: log.GetLogger("echo"),
 	}
 }
 
 func (r *Response) Object() interface{} {
-	return r.RequestCtx
+	return r.request.context
 }
 
 func (r *Response) Header() engine.Header {
@@ -53,7 +58,7 @@ func (r *Response) WriteHeader(code int) {
 		return
 	}
 	r.status = code
-	r.RequestCtx.SetStatusCode(code)
+	r.request.context.SetStatusCode(code)
 	r.committed = true
 }
 
@@ -93,7 +98,7 @@ func (r *Response) Writer() io.Writer {
 }
 
 func (r *Response) Hijacker(fn func(net.Conn)) error {
-	r.RequestCtx.Hijack(fasthttp.HijackHandler(fn))
+	r.request.context.Hijack(fasthttp.HijackHandler(fn))
 	r.committed = true
 	return nil
 }
@@ -101,30 +106,30 @@ func (r *Response) Hijacker(fn func(net.Conn)) error {
 func (r *Response) Body() []byte {
 	switch strings.ToLower(r.header.Get(`Content-Encoding`)) {
 	case `gzip`:
-		body, err := r.RequestCtx.Response.BodyGunzip()
+		body, err := r.request.context.Response.BodyGunzip()
 		if err != nil {
 			r.logger.Error(err)
 		}
 		return body
 	case `deflate`:
-		body, err := r.RequestCtx.Response.BodyInflate()
+		body, err := r.request.context.Response.BodyInflate()
 		if err != nil {
 			r.logger.Error(err)
 		}
 		return body
 	default:
-		return r.RequestCtx.Response.Body()
+		return r.request.context.Response.Body()
 	}
 }
 
 func (r *Response) Redirect(url string, code int) {
-	//r.RequestCtx.Redirect(url, code)  bug: missing port number
+	//r.request.context.Redirect(url, code)  bug: missing port number
 	r.header.Set(`Location`, url)
 	r.WriteHeader(code)
 }
 
 func (r *Response) NotFound() {
-	r.RequestCtx.NotFound()
+	r.request.context.NotFound()
 	r.committed = true
 }
 
@@ -133,14 +138,39 @@ func (r *Response) SetCookie(cookie *http.Cookie) {
 }
 
 func (r *Response) ServeFile(file string) {
-	fasthttp.ServeFile(r.RequestCtx, file)
+	fasthttp.ServeFile(r.request.context, file)
 	r.committed = true
 }
 
-func (r *Response) Stream(step func(io.Writer) bool) {
-	r.RequestCtx.SetBodyStreamWriter(func(w *bufio.Writer) {
-		//TODO
-	})
+func (r *Response) ServeContent(content io.ReadSeeker, name string, modtime time.Time) {
+	http.ServeContent(r.StdResponseWriter(), r.request.StdRequest(), name, modtime, content)
+	r.committed = true
+}
+
+func (r *Response) Stream(step func(io.Writer) bool) (err error) {
+	err = echo.ErrNotImplemented
+	return
+	// r.request.context.SetBodyStreamWriter(func(w *bufio.Writer) {
+	// 	for {
+	// 		select {
+	// 		case <-r.request.context.Done():
+	// 			r.logger.Debug(`Context Cancelled`)
+	// 			return
+	// 		default:
+	// 			keepOpen := step(w)
+	// 			err = w.Flush()
+	// 			if err != nil {
+	// 				r.logger.Debug(`Push: `, err)
+	// 				return
+	// 			}
+	// 			if !keepOpen {
+	// 				r.logger.Debug(`keepOpen: closed`)
+	// 				return
+	// 			}
+	// 			time.Sleep(time.Second)
+	// 		}
+	// 	}
+	// })
 }
 
 func (r *Response) Error(errMsg string, args ...int) {
@@ -153,13 +183,13 @@ func (r *Response) Error(errMsg string, args ...int) {
 	r.WriteHeader(r.status)
 }
 
-func (r *Response) reset(c *fasthttp.RequestCtx, h engine.Header) {
-	r.RequestCtx = c
+func (r *Response) reset(req *Request, h engine.Header) {
+	r.request = req
 	r.header = h
 	r.status = http.StatusOK
 	r.size = 0
 	r.committed = false
-	r.writer = c
+	r.writer = req.context
 	r.stdResponseWriter = nil
 }
 

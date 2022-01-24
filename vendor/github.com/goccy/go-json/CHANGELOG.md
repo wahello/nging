@@ -1,3 +1,45 @@
+# v0.9.4 - 2022/01/21
+
+* Fix the case where the embedded field is at the end ( #326 )
+
+# v0.9.3 - 2022/01/14
+
+* Fix logic of removing struct field for decoder ( #322 )
+
+# v0.9.2 - 2022/01/14
+
+* Add invalid decoder to delay type error judgment at decode ( #321 )
+
+# v0.9.1 - 2022/01/11
+
+* Fix encoding of MarshalText/MarshalJSON operation with head offset ( #319 )
+
+# v0.9.0 - 2022/01/05
+
+### New feature
+
+* Supports dynamic filtering of struct fields ( #314 )
+
+### Improve encoding performance
+
+* Improve map encoding performance ( #310 )
+* Optimize encoding path for escaped string ( #311 )
+* Add encoding option for performance ( #312 )
+
+### Fix bugs
+
+* Fix panic at encoding map value on 1.18 ( #310 )
+* Fix MarshalIndent for interface type ( #317 )
+
+# v0.8.1 - 2021/12/05
+
+* Fix operation conversion from PtrHead to Head in Recursive type ( #305 )
+
+# v0.8.0 - 2021/12/02
+
+* Fix embedded field conflict behavior ( #300 )
+* Refactor compiler for encoder ( #301 #302 )
+
 # v0.7.10 - 2021/10/16
 
 * Fix conversion from pointer to uint64  ( #294 )

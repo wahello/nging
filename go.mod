@@ -110,7 +110,7 @@ require (
 	github.com/go-ping/ping v0.0.0-20211014180314-6e2b003bffdd // indirect
 	github.com/go-playground/validator/v10 v10.9.0 // indirect
 	github.com/go-redis/redis/v8 v8.11.4 // indirect
-	github.com/goccy/go-json v0.7.10 // indirect
+	github.com/goccy/go-json v0.9.4 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/golang/glog v1.0.0 // indirect
 	github.com/gomodule/redigo v1.8.5
@@ -160,16 +160,16 @@ require (
 	github.com/webx-top/chardet v0.0.1 // indirect
 	github.com/webx-top/client v0.3.7
 	github.com/webx-top/codec v0.1.1
-	github.com/webx-top/com v0.2.10
-	github.com/webx-top/db v1.15.21
-	github.com/webx-top/echo v2.22.17+incompatible
+	github.com/webx-top/com v0.3.6
+	github.com/webx-top/db v1.20.4
+	github.com/webx-top/echo v2.24.0+incompatible
 	github.com/webx-top/echo-prometheus v1.0.10 // indirect
 	github.com/webx-top/image v0.0.9
 	github.com/webx-top/pagination v0.1.1
 	gocloud.dev v0.24.0
 	goftp.io/server/v2 v2.0.0
-	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
-	golang.org/x/net v0.0.0-20211101193420-4a448f8816b3
+	golang.org/x/crypto v0.0.0-20220112180741-5e0467b6c7ce
+	golang.org/x/net v0.0.0-20220121210141-e204ce36a2ba
 	google.golang.org/genproto v0.0.0-20211101144312-62acf1d99145 // indirect
 	gopkg.in/ini.v1 v1.63.2 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
@@ -258,9 +258,9 @@ require (
 	github.com/marten-seemann/qpack v0.2.1 // indirect
 	github.com/marten-seemann/qtls-go1-16 v0.1.4 // indirect
 	github.com/marten-seemann/qtls-go1-17 v0.1.0 // indirect
-	github.com/mattn/go-colorable v0.1.11 // indirect
+	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
-	github.com/mattn/go-sqlite3 v1.14.9 // indirect
+	github.com/mattn/go-sqlite3 v1.14.10 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/minio/sha256-simd v1.0.0 // indirect
@@ -303,6 +303,7 @@ require (
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/volatiletech/inflect v0.0.1 // indirect
 	github.com/volatiletech/strmangle v0.0.1 // indirect
+	github.com/webx-top/poolx v0.0.0-20210912044716-5cfa2d58e380 // indirect
 	github.com/webx-top/tagfast v0.0.0-20161020041435-9a2065ce3dd2 // indirect
 	github.com/webx-top/validation v0.0.3 // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
@@ -313,7 +314,7 @@ require (
 	golang.org/x/mod v0.5.1 // indirect
 	golang.org/x/oauth2 v0.0.0-20211028175245-ba495a64dcb5 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	golang.org/x/sys v0.0.0-20211102061401-a2f17f7b995c // indirect
+	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
 	golang.org/x/tools v0.1.7 // indirect
