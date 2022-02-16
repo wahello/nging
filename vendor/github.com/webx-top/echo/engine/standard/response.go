@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/webx-top/echo/engine"
 	"github.com/webx-top/echo/logger"
@@ -153,16 +154,20 @@ func (r *Response) ServeFile(file string) {
 	r.committed = true
 }
 
-func (r *Response) Stream(step func(io.Writer) bool) {
-	w := r.ResponseWriter
-	clientGone := w.(http.CloseNotifier).CloseNotify()
+func (r *Response) ServeContent(content io.ReadSeeker, name string, modtime time.Time) {
+	r.keepBody = false
+	http.ServeContent(r.ResponseWriter, r.request, name, modtime, content)
+	r.committed = true
+}
+
+func (r *Response) Stream(step func(io.Writer) bool) (err error) {
 	for {
 		select {
-		case <-clientGone:
+		case <-r.request.Context().Done():
 			return
 		default:
-			keepOpen := step(w)
-			w.(http.Flusher).Flush()
+			keepOpen := step(r)
+			r.Flush()
 			if !keepOpen {
 				return
 			}
@@ -178,10 +183,6 @@ func (r *Response) Flush() {
 
 func (r *Response) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	return r.ResponseWriter.(http.Hijacker).Hijack()
-}
-
-func (r *Response) CloseNotify() <-chan bool {
-	return r.ResponseWriter.(http.CloseNotifier).CloseNotify()
 }
 
 func (r *Response) StdResponseWriter() http.ResponseWriter {

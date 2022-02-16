@@ -33,7 +33,8 @@ type Context interface {
 
 	//Standard Context
 	StdContext() context.Context
-	SetStdContext(context.Context)
+	WithContext(ctx context.Context) *http.Request
+	SetValue(key string, value interface{})
 
 	Validator
 	SetValidator(Validator)
@@ -47,6 +48,7 @@ type Context interface {
 	Echo() *Echo
 	Route() *Route
 	Reset(engine.Request, engine.Response)
+	Dispatch(route string) Handler
 
 	//----------------
 	// Param
@@ -126,10 +128,10 @@ type Context interface {
 	JSONP(string, interface{}, ...int) error
 	XML(interface{}, ...int) error
 	XMLBlob([]byte, ...int) error
-	Stream(func(io.Writer) bool)
+	Stream(func(io.Writer) bool) error
 	SSEvent(string, chan interface{}) error
 	File(string, ...http.FileSystem) error
-	Attachment(io.Reader, string, ...bool) error
+	Attachment(io.Reader, string, time.Time, ...bool) error
 	NoContent(...int) error
 	Redirect(string, ...int) error
 	Error(err error)
