@@ -23,6 +23,10 @@ type (
 		echo   *Echo
 	}
 
+	Rewriter interface {
+		Rewrite(string) string
+	}
+
 	Route struct {
 		Host       string
 		Method     string
@@ -192,69 +196,59 @@ func (r *Route) GetStore(names ...string) H {
 	return res
 }
 
-func (r *Route) MakeURI(defaultExtension string, params ...interface{}) (uri string) {
+func (r *Route) MakeURI(e *Echo, params ...interface{}) (uri string) {
 	length := len(params)
-	if length == 1 {
-		switch val := params[0].(type) {
-		case url.Values:
-			uri = r.Path
-			if len(r.Params) > 0 {
-				values := make([]interface{}, len(r.Params))
-				for index, name := range r.Params {
-					values[index] = val.Get(name)
-					val.Del(name)
-				}
-				uri = fmt.Sprintf(r.Format, values...)
-			}
-			if len(defaultExtension) > 0 && !strings.HasSuffix(uri, defaultExtension) {
-				uri += defaultExtension
-			}
-			q := val.Encode()
-			if len(q) > 0 {
-				uri += `?` + q
-			}
-		case map[string]string:
-			uri = r.Path
-			if len(r.Params) > 0 {
-				values := make([]interface{}, len(r.Params))
-				for index, name := range r.Params {
-					var ok bool
-					values[index], ok = val[name]
-					if ok {
-						delete(val, name)
-					}
-				}
-				uri = fmt.Sprintf(r.Format, values...)
-			}
-			if len(defaultExtension) > 0 && !strings.HasSuffix(uri, defaultExtension) {
-				uri += defaultExtension
-			}
-			sep := `?`
-			keys := make([]string, 0, len(val))
-			for k := range val {
-				keys = append(keys, k)
-			}
-			sort.Strings(keys)
-			for _, k := range keys {
-				uri += sep + url.QueryEscape(k) + `=` + url.QueryEscape(val[k])
-				sep = `&`
-			}
-		case []interface{}:
-			uri = fmt.Sprintf(r.Format, val...)
-			if len(defaultExtension) > 0 && !strings.HasSuffix(uri, defaultExtension) {
-				uri += defaultExtension
-			}
-		default:
-			uri = fmt.Sprintf(r.Format, val)
-			if len(defaultExtension) > 0 && !strings.HasSuffix(uri, defaultExtension) {
-				uri += defaultExtension
-			}
-		}
-	} else {
+	if length != 1 {
 		uri = fmt.Sprintf(r.Format, params...)
-		if len(defaultExtension) > 0 && !strings.HasSuffix(uri, defaultExtension) {
-			uri += defaultExtension
+		uri = e.wrapURI(uri)
+		return
+	}
+	switch val := params[0].(type) {
+	case url.Values:
+		uri = r.Path
+		if len(r.Params) > 0 {
+			values := make([]interface{}, len(r.Params))
+			for index, name := range r.Params {
+				values[index] = val.Get(name)
+				val.Del(name)
+			}
+			uri = fmt.Sprintf(r.Format, values...)
 		}
+		uri = e.wrapURI(uri)
+		q := val.Encode()
+		if len(q) > 0 {
+			uri += `?` + q
+		}
+	case map[string]string:
+		uri = r.Path
+		if len(r.Params) > 0 {
+			values := make([]interface{}, len(r.Params))
+			for index, name := range r.Params {
+				var ok bool
+				values[index], ok = val[name]
+				if ok {
+					delete(val, name)
+				}
+			}
+			uri = fmt.Sprintf(r.Format, values...)
+		}
+		uri = e.wrapURI(uri)
+		sep := `?`
+		keys := make([]string, 0, len(val))
+		for k := range val {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			uri += sep + url.QueryEscape(k) + `=` + url.QueryEscape(val[k])
+			sep = `&`
+		}
+	case []interface{}:
+		uri = fmt.Sprintf(r.Format, val...)
+		uri = e.wrapURI(uri)
+	default:
+		uri = fmt.Sprintf(r.Format, val)
+		uri = e.wrapURI(uri)
 	}
 	return
 }
@@ -419,8 +413,14 @@ func NewRouter(e *Echo) *Router {
 }
 
 func (r *Router) Handle(c Context) Handler {
+	return r.Dispatch(c, c.Request().URL().Path())
+}
+
+func (r *Router) Dispatch(c Context, path string, _method ...string) Handler {
 	method := c.Request().Method()
-	path := c.Request().URL().Path()
+	if len(_method) > 0 && len(_method[0]) > 0 {
+		method = _method[0]
+	}
 	found := r.Find(method, path, c)
 	if !found {
 		ext := c.DefaultExtension()
@@ -677,7 +677,11 @@ func newNode(t kind, pre string, p *node, sc children, mh *methodHandler, ppath 
 	}
 	n.isLeaf = n.IsLeaf()
 	if len(regExpr) > 0 && len(regExpr[0]) > 0 {
-		n.regExp = regexp.MustCompile(regExpr[0])
+		if n.isLeaf && strings.HasSuffix(n.ppath, `:`+regExpr[0]+`>`) { // <name:regExpr>
+			n.regExp = regexp.MustCompile(`^` + regExpr[0] + `$`)
+		} else {
+			n.regExp = regexp.MustCompile(`^` + regExpr[0])
+		}
 	}
 	return n
 }

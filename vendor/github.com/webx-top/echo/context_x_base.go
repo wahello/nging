@@ -1,29 +1,29 @@
 package echo
 
 import (
-	"bytes"
 	"context"
 	"fmt"
+	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
 	"github.com/admpub/events"
-	"github.com/admpub/events/emitter"
 
 	pkgCode "github.com/webx-top/echo/code"
 	"github.com/webx-top/echo/engine"
 	"github.com/webx-top/echo/logger"
 	"github.com/webx-top/echo/param"
+	"github.com/webx-top/poolx/bufferpool"
 )
 
 type xContext struct {
 	Validator
 	Translator
-	events.Emitter
+	events.Emitterer
 	transaction         *BaseTransaction
 	sessioner           Sessioner
 	cookier             Cookier
-	context             context.Context
 	request             engine.Request
 	response            engine.Response
 	path                string
@@ -57,9 +57,8 @@ func NewContext(req engine.Request, res engine.Response, e *Echo) Context {
 	c := &xContext{
 		Validator:   e.Validator,
 		Translator:  DefaultNopTranslate,
-		Emitter:     emitter.DefaultCondEmitter,
+		Emitterer:   events.Default,
 		transaction: DefaultNopTransaction,
-		context:     context.Background(),
 		request:     req,
 		response:    res,
 		echo:        e,
@@ -77,19 +76,23 @@ func NewContext(req engine.Request, res engine.Response, e *Echo) Context {
 }
 
 func (c *xContext) StdContext() context.Context {
-	return c.context
+	return c.request.Context()
+}
+
+func (c *xContext) WithContext(ctx context.Context) *http.Request {
+	return c.request.WithContext(ctx)
+}
+
+func (c *xContext) SetValue(key string, value interface{}) {
+	c.request.SetValue(key, value)
 }
 
 func (c *xContext) Internal() *param.SafeMap {
 	return c.internal
 }
 
-func (c *xContext) SetStdContext(ctx context.Context) {
-	c.context = ctx
-}
-
-func (c *xContext) SetEmitter(emitter events.Emitter) {
-	c.Emitter = emitter
+func (c *xContext) SetEmitterer(emitterer events.Emitterer) {
+	c.Emitterer = emitterer
 }
 
 func (c *xContext) Handler() Handler {
@@ -97,19 +100,19 @@ func (c *xContext) Handler() Handler {
 }
 
 func (c *xContext) Deadline() (deadline time.Time, ok bool) {
-	return c.context.Deadline()
+	return c.StdContext().Deadline()
 }
 
 func (c *xContext) Done() <-chan struct{} {
-	return c.context.Done()
+	return c.StdContext().Done()
 }
 
 func (c *xContext) Err() error {
-	return c.context.Err()
+	return c.StdContext().Err()
 }
 
 func (c *xContext) Value(key interface{}) interface{} {
-	return c.context.Value(key)
+	return c.StdContext().Value(key)
 }
 
 func (c *xContext) Handle(ctx Context) error {
@@ -193,13 +196,13 @@ func (c *xContext) DefaultExtension() string {
 }
 
 func (c *xContext) Reset(req engine.Request, res engine.Response) {
+	req.SetMaxSize(c.echo.MaxRequestBodySize())
 	c.Validator = c.echo.Validator
-	c.Emitter = emitter.DefaultCondEmitter
+	c.Emitterer = events.Default
 	c.Translator = DefaultNopTranslate
 	c.transaction = DefaultNopTransaction
 	c.sessioner = DefaultSession
 	c.cookier = NewCookier(c)
-	c.context = context.Background()
 	c.request = req
 	c.response = res
 	c.internal = param.NewMap()
@@ -259,7 +262,8 @@ func (c *xContext) Fetch(name string, data interface{}) (b []byte, err error) {
 		}
 		c.renderer = c.echo.renderer
 	}
-	buf := new(bytes.Buffer)
+	buf := bufferpool.Get()
+	defer bufferpool.Release(buf)
 	err = c.renderer.Render(buf, name, data, c)
 	if err != nil {
 		return
@@ -370,4 +374,23 @@ func (c *xContext) PrintFuncs() {
 	for key, fn := range c.Funcs() {
 		fmt.Printf("[Template Func](%p) %-15s -> %s \n", fn, key, HandlerName(fn))
 	}
+}
+
+func (c *xContext) Dispatch(route string) Handler {
+	u, err := url.Parse(route)
+	if err != nil {
+		return ErrorHandler(err)
+	}
+	c.Request().URL().SetRawQuery(u.RawQuery)
+	for key, values := range u.Query() {
+		for index, value := range values {
+			if index == 0 {
+				c.Request().URL().Query().Set(key, value)
+			} else {
+				c.Request().URL().Query().Add(key, value)
+			}
+		}
+	}
+	c.handler = NotFoundHandler
+	return c.Echo().Router().Dispatch(c, u.Path)
 }

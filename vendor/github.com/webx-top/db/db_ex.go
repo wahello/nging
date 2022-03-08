@@ -5,6 +5,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"sync"
 )
 
 func NewKeysValues() *KeysValues {
@@ -69,6 +70,21 @@ func (k *KeysValues) Map() map[string]interface{} {
 }
 
 type Compounds []Compound
+
+var compoundsPool = sync.Pool{
+	New: func() interface{} {
+		return NewCompounds()
+	},
+}
+
+func CompoundsPoolGet() *Compounds {
+	return compoundsPool.Get().(*Compounds)
+}
+
+func CompoundsPoolRelease(c *Compounds) {
+	c.Reset()
+	compoundsPool.Put(c)
+}
 
 func NewCompounds() *Compounds {
 	return &Compounds{}
@@ -149,6 +165,13 @@ func (c *Compounds) Empty() bool {
 	return c.Size() == 0
 }
 
+func (c *Compounds) Reset() {
+	if c.Empty() {
+		return
+	}
+	*c = (*c)[0:0]
+}
+
 type TableName interface {
 	TableName() string
 }
@@ -165,4 +188,12 @@ func Table(tableName string) TableName {
 
 type StdContext interface {
 	StdContext() context.Context
+}
+
+type RequestURI interface {
+	RequestURI() string
+}
+
+type Method interface {
+	Method() string
 }
