@@ -1,9 +1,11 @@
+//go:build !appengine
 // +build !appengine
 
 package fasthttp
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"io"
 	"io/ioutil"
@@ -11,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 
 	"github.com/admpub/fasthttp"
 	"github.com/admpub/realip"
@@ -19,24 +22,57 @@ import (
 )
 
 type Request struct {
-	response   *Response
+	config     *engine.Config
+	requestMu  sync.RWMutex
 	context    *fasthttp.RequestCtx
 	url        engine.URL
 	header     engine.Header
 	value      *Value
 	realIP     string
 	stdRequest *http.Request
+	maxSize    int
 }
 
 func NewRequest(c *fasthttp.RequestCtx) *Request {
 	req := &Request{
 		context: c,
 		url:     &URL{url: c.URI()},
-		header:  &RequestHeader{header: &c.Request.Header, stdhdr: nil},
+		header: &RequestHeader{
+			header: &c.Request.Header,
+			stdhdr: nil,
+		},
 	}
 	req.value = NewValue(req)
-	req.response = NewResponse(c)
 	return req
+}
+
+func (r *Request) Context() context.Context {
+	return r.context
+}
+
+func (r *Request) WithContext(ctx context.Context) *http.Request {
+	return r.StdRequest().WithContext(ctx)
+}
+
+func (r *Request) SetValue(key string, value interface{}) {
+	r.requestMu.Lock()
+	r.context.SetUserValue(key, value)
+	r.requestMu.Unlock()
+}
+
+func (r *Request) SetMaxSize(maxSize int) {
+	r.maxSize = maxSize
+}
+
+func (r *Request) MaxSize() int {
+	if r.maxSize <= 0 {
+		maxMemory := engine.DefaultMaxRequestBodySize
+		if r.config != nil && r.config.MaxRequestBodySize != 0 {
+			maxMemory = r.config.MaxRequestBodySize
+		}
+		return maxMemory
+	}
+	return r.maxSize
 }
 
 func (r *Request) Host() string {
@@ -164,14 +200,16 @@ func (r *Request) Size() int64 {
 	return int64(r.context.Request.Header.ContentLength())
 }
 
-func (r *Request) reset(res *Response, c *fasthttp.RequestCtx, h engine.Header, u engine.URL) {
+func (r *Request) reset(c *fasthttp.RequestCtx, h engine.Header, u engine.URL) {
+	r.config = nil
+	r.requestMu = sync.RWMutex{}
 	r.context = c
 	r.header = h
 	r.url = u
 	r.value = NewValue(r)
 	r.realIP = ``
-	r.response = res
 	r.stdRequest = nil
+	r.maxSize = 0
 }
 
 // BasicAuth returns the username and password provided in the request's
@@ -204,6 +242,7 @@ func (r *Request) StdRequest() *http.Request {
 	req.ContentLength = r.Size()
 	req.Host = r.Host()
 	req.RemoteAddr = r.RemoteAddress()
+	req.TLS = ctx.TLSConnectionState()
 
 	hdr := make(http.Header)
 	ctx.Request.Header.VisitAll(func(k, v []byte) {
@@ -221,10 +260,9 @@ func (r *Request) StdRequest() *http.Request {
 	rURL, err := url.ParseRequestURI(req.RequestURI)
 	if err != nil {
 		ctx.Logger().Printf("cannot parse requestURI %q: %s", req.RequestURI, err)
-		r.response.Error("Internal Server Error")
 	}
 	req.URL = rURL
-	r.stdRequest = &req
+	r.stdRequest = req.WithContext(r.context)
 	return r.stdRequest
 }
 

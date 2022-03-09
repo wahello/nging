@@ -37,10 +37,12 @@ import (
 	"github.com/admpub/log"
 	"golang.org/x/sync/singleflight"
 
+	"github.com/webx-top/com"
 	"github.com/webx-top/echo"
 	"github.com/webx-top/echo/logger"
 	"github.com/webx-top/echo/middleware/render/driver"
 	"github.com/webx-top/echo/middleware/render/manager"
+	"github.com/webx-top/poolx/bufferpool"
 )
 
 var Debug = false
@@ -275,6 +277,9 @@ func (a *Standard) parse(c echo.Context, tmplName string) (tmpl *htmlTpl.Templat
 	rel, ok := a.CachedRelation.GetOk(cachedKey)
 	if ok && rel.Tpl[0].Template != nil {
 		tmpl = rel.Tpl[0].Template
+		if a.debug {
+			a.logger.Debug(` `+tmplName, tmpl.DefinedTemplates())
+		}
 		funcMap = setFunc(rel.Tpl[0], funcMap)
 		tmpl.Funcs(funcMap)
 		return
@@ -409,12 +414,13 @@ func (a *Standard) Fetch(tmplName string, data interface{}, c echo.Context) stri
 }
 
 func (a *Standard) execute(tmpl *htmlTpl.Template, data interface{}) string {
-	buf := new(bytes.Buffer)
+	buf := bufferpool.Get()
+	defer bufferpool.Release(buf)
 	err := tmpl.ExecuteTemplate(buf, tmpl.Name(), data)
 	if err != nil {
 		return fmt.Sprintf("Parse %v err: %v", tmpl.Name(), err)
 	}
-	return buf.String()
+	return com.Bytes2str(buf.Bytes())
 }
 
 func (a *Standard) ParseBlock(c echo.Context, content string, subcs map[string]string, extcs map[string]string) {
