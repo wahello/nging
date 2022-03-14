@@ -957,7 +957,7 @@ github.com/matttproud/golang_protobuf_extensions/pbutil
 ## explicit; go 1.16
 github.com/microcosm-cc/bluemonday
 github.com/microcosm-cc/bluemonday/css
-# github.com/miekg/dns v1.1.43
+# github.com/miekg/dns v1.1.47
 ## explicit; go 1.14
 github.com/miekg/dns
 # github.com/minio/md5-simd v1.1.2
