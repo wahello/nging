@@ -33,7 +33,7 @@ var (
 	// ErrXClientNoServer selector can't found one server.
 	ErrXClientNoServer = errors.New("can not found any server")
 	// ErrServerUnavailable selected server is unavailable.
-	ErrServerUnavailable = errors.New("selected server is unavilable")
+	ErrServerUnavailable = errors.New("selected server is unavailable")
 )
 
 // Receipt represents the result of the service returned.
@@ -1197,7 +1197,7 @@ loop:
 			if n == 0 {
 				break loop
 			}
-			_, err = conn.Write(sendBuffer)
+			_, err = conn.Write(sendBuffer[:n])
 			if err != nil {
 				if err == io.EOF {
 					return nil
@@ -1264,7 +1264,7 @@ loop:
 	return err
 }
 
-// Close closes this client and its underlying connnections to services.
+// Close closes this client and its underlying connections to services.
 func (c *xClient) Close() error {
 	var errs []error
 	c.mu.Lock()
