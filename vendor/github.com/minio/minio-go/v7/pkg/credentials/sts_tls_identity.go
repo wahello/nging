@@ -16,10 +16,12 @@
 package credentials
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/xml"
 	"errors"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -92,7 +94,7 @@ func NewSTSCertificateIdentity(endpoint string, certificate tls.Certificate, opt
 	if _, err := url.Parse(endpoint); err != nil {
 		return nil, err
 	}
-	var identity = &STSCertificateIdentity{
+	identity := &STSCertificateIdentity{
 		STSEndpoint: endpoint,
 		Client: http.Client{
 			Transport: &http.Transport{
@@ -125,7 +127,7 @@ func (i *STSCertificateIdentity) Retrieve() (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	var livetime = i.S3CredentialLivetime
+	livetime := i.S3CredentialLivetime
 	if livetime == 0 {
 		livetime = 1 * time.Hour
 	}
@@ -149,7 +151,22 @@ func (i *STSCertificateIdentity) Retrieve() (Value, error) {
 		defer resp.Body.Close()
 	}
 	if resp.StatusCode != http.StatusOK {
-		return Value{}, errors.New(resp.Status)
+		var errResp ErrorResponse
+		buf, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return Value{}, err
+		}
+		_, err = xmlDecodeAndBody(bytes.NewReader(buf), &errResp)
+		if err != nil {
+			var s3Err Error
+			if _, err = xmlDecodeAndBody(bytes.NewReader(buf), &s3Err); err != nil {
+				return Value{}, err
+			}
+			errResp.RequestID = s3Err.RequestID
+			errResp.STSError.Code = s3Err.Code
+			errResp.STSError.Message = s3Err.Message
+		}
+		return Value{}, errResp
 	}
 
 	const MaxSize = 10 * 1 << 20
