@@ -95,7 +95,7 @@ func BuildSQL(query string, args ...interface{}) string {
 
 // String returns a formatted log message.
 func (q *QueryStatus) Lines() []string {
-	lines := make([]string, 0, 8)
+	lines := make([]string, 0, 9)
 	if q.SessID > 0 {
 		lines = append(lines, fmt.Sprintf(fmtLogSessID, q.SessID))
 	}
@@ -128,11 +128,20 @@ func (q *QueryStatus) Lines() []string {
 	lines = append(lines, fmt.Sprintf(fmtLogTimeTaken, float64(q.End.UnixNano()-q.Start.UnixNano())/float64(1e9)))
 
 	if q.Context != nil {
-		if cx, ok := q.Context.(StdContext); ok {
-			lines = append(lines, fmt.Sprintf(fmtLogContext, cx.StdContext()))
-		} else {
-			lines = append(lines, fmt.Sprintf(fmtLogContext, q.Context))
+		var ctx interface{}
+		switch v := q.Context.(type) {
+		case RequestURI:
+			if m, ok := v.(Method); ok {
+				ctx = `[` + m.Method() + `] ` + v.RequestURI()
+			} else {
+				ctx = v.RequestURI()
+			}
+		case StdContext:
+			ctx = v.StdContext()
+		default:
+			ctx = v
 		}
+		lines = append(lines, fmt.Sprintf(fmtLogContext, ctx))
 	}
 	return lines
 }

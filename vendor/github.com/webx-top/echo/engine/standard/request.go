@@ -1,25 +1,27 @@
 package standard
 
 import (
+	"context"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
+	"sync"
 
 	"github.com/admpub/realip"
 	"github.com/webx-top/echo"
 	"github.com/webx-top/echo/engine"
 )
 
-var defaultMaxRequestBodySize int64 = 32 << 20 // 32 MB
-
 type Request struct {
-	config  *engine.Config
-	request *http.Request
-	url     *URL
-	header  *Header
-	value   *Value
-	realIP  string
+	config    *engine.Config
+	requestMu sync.RWMutex
+	request   *http.Request
+	url       *URL
+	header    *Header
+	value     *Value
+	realIP    string
+	maxSize   int
 }
 
 func NewRequest(r *http.Request) *Request {
@@ -30,6 +32,35 @@ func NewRequest(r *http.Request) *Request {
 	}
 	req.value = NewValue(req)
 	return req
+}
+
+func (r *Request) Context() context.Context {
+	return r.request.Context()
+}
+
+func (r *Request) WithContext(ctx context.Context) *http.Request {
+	return r.request.WithContext(ctx)
+}
+
+func (r *Request) SetValue(key string, value interface{}) {
+	r.requestMu.Lock()
+	*r.request = *r.WithContext(context.WithValue(r.request.Context(), key, value))
+	r.requestMu.Unlock()
+}
+
+func (r *Request) SetMaxSize(maxSize int) {
+	r.maxSize = maxSize
+}
+
+func (r *Request) MaxSize() int {
+	if r.maxSize <= 0 {
+		maxMemory := engine.DefaultMaxRequestBodySize
+		if r.config != nil && r.config.MaxRequestBodySize != 0 {
+			maxMemory = r.config.MaxRequestBodySize
+		}
+		return maxMemory
+	}
+	return r.maxSize
 }
 
 func (r *Request) Host() string {
@@ -116,11 +147,7 @@ func (r *Request) PostForm() engine.URLValuer {
 
 func (r *Request) MultipartForm() *multipart.Form {
 	if r.request.MultipartForm == nil {
-		maxMemory := defaultMaxRequestBodySize
-		if r.config != nil && r.config.MaxRequestBodySize != 0 {
-			maxMemory = int64(r.config.MaxRequestBodySize)
-		}
-		r.request.ParseMultipartForm(maxMemory)
+		r.request.ParseMultipartForm(int64(r.MaxSize()))
 	}
 	return r.request.MultipartForm
 }
@@ -149,11 +176,13 @@ func (r *Request) Object() interface{} {
 }
 
 func (r *Request) reset(req *http.Request, h *Header, u *URL) {
+	r.requestMu = sync.RWMutex{}
 	r.request = req
 	r.header = h
 	r.url = u
 	r.value = NewValue(r)
 	r.realIP = ``
+	r.maxSize = 0
 }
 
 func (r *Request) FormFile(key string) (multipart.File, *multipart.FileHeader, error) {
