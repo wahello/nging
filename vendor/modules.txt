@@ -824,7 +824,7 @@ github.com/kavu/go_reuseport
 ## explicit; go 1.14
 github.com/kisielk/errcheck
 github.com/kisielk/errcheck/errcheck
-# github.com/klauspost/compress v1.15.4
+# github.com/klauspost/compress v1.15.6
 ## explicit; go 1.16
 github.com/klauspost/compress
 github.com/klauspost/compress/flate
@@ -1097,7 +1097,7 @@ github.com/nging-plugins/servermanager/pkg/library/setup
 github.com/nging-plugins/servermanager/pkg/library/system
 github.com/nging-plugins/servermanager/pkg/model
 github.com/nging-plugins/servermanager/pkg/registry
-# github.com/nging-plugins/sshmanager v0.3.2
+# github.com/nging-plugins/sshmanager v0.4.2
 ## explicit; go 1.17
 github.com/nging-plugins/sshmanager
 github.com/nging-plugins/sshmanager/pkg/dbschema
@@ -1216,7 +1216,7 @@ github.com/rwcarlsen/goexif/tiff
 # github.com/samuel/go-zookeeper v0.0.0-20201211165307-7117e9ea2414
 ## explicit
 github.com/samuel/go-zookeeper/zk
-# github.com/shirou/gopsutil/v3 v3.22.4
+# github.com/shirou/gopsutil/v3 v3.22.5
 ## explicit; go 1.15
 github.com/shirou/gopsutil/v3/cpu
 github.com/shirou/gopsutil/v3/disk
@@ -1363,7 +1363,7 @@ github.com/webx-top/codec
 github.com/webx-top/com
 github.com/webx-top/com/encoding/json
 github.com/webx-top/com/httpClientOptions
-# github.com/webx-top/db v1.21.1
+# github.com/webx-top/db v1.21.2
 ## explicit; go 1.16
 github.com/webx-top/db
 github.com/webx-top/db/internal/cache
@@ -1380,7 +1380,7 @@ github.com/webx-top/db/lib/reflectx
 github.com/webx-top/db/lib/sqlbuilder
 github.com/webx-top/db/mysql
 github.com/webx-top/db/sqlite
-# github.com/webx-top/echo v2.26.6+incompatible
+# github.com/webx-top/echo v2.26.8+incompatible
 ## explicit
 github.com/webx-top/echo
 github.com/webx-top/echo/code
@@ -1491,7 +1491,7 @@ gocloud.dev/internal/retry
 ## explicit; go 1.12
 goftp.io/server/v2
 goftp.io/server/v2/ratelimit
-# golang.org/x/crypto v0.0.0-20220518034528-6f7dac969898
+# golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 ## explicit; go 1.17
 golang.org/x/crypto/acme
 golang.org/x/crypto/acme/autocert
@@ -1520,7 +1520,7 @@ golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
 golang.org/x/crypto/tea
 golang.org/x/crypto/twofish
 golang.org/x/crypto/xtea
-# golang.org/x/image v0.0.0-20220413100746-70e8d0d3baa9
+# golang.org/x/image v0.0.0-20220601225756-64ec528b34cd
 ## explicit; go 1.12
 golang.org/x/image/bmp
 golang.org/x/image/ccitt
@@ -1543,7 +1543,7 @@ golang.org/x/lint/golint
 golang.org/x/mod/internal/lazyregexp
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/net v0.0.0-20220520000938-2e3eb7b945c2
+# golang.org/x/net v0.0.0-20220607020251-c690dde0001d
 ## explicit; go 1.17
 golang.org/x/net/bpf
 golang.org/x/net/context
@@ -1573,12 +1573,12 @@ golang.org/x/net/websocket
 golang.org/x/oauth2
 golang.org/x/oauth2/clientcredentials
 golang.org/x/oauth2/internal
-# golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
+# golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
 ## explicit
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
 golang.org/x/sync/singleflight
-# golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
+# golang.org/x/sys v0.0.0-20220608164250-635b8c9b7f68
 ## explicit; go 1.17
 golang.org/x/sys/cpu
 golang.org/x/sys/execabs
