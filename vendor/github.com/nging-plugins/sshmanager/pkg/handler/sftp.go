@@ -24,8 +24,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/admpub/web-terminal/library/ssh"
-	"github.com/pkg/sftp"
 	uploadClient "github.com/webx-top/client/upload"
 	uploadDropzone "github.com/webx-top/client/upload/driver/dropzone"
 	"github.com/webx-top/com"
@@ -43,27 +41,15 @@ import (
 	"github.com/nging-plugins/sshmanager/pkg/model"
 )
 
-func sftpConnect(m *dbschema.NgingSshUser) (*sftp.Client, error) {
-	account := &ssh.AccountConfig{
-		User:     m.Username,
-		Password: config.DefaultConfig.Decode(m.Password),
+func sftpConfig(m *dbschema.NgingSshUser) sftpmanager.Config {
+	return sftpmanager.Config{
+		Host:       m.Host,
+		Port:       m.Port,
+		Username:   m.Username,
+		Password:   m.Password,
+		PrivateKey: m.PrivateKey,
+		Passphrase: m.Passphrase,
 	}
-	if len(m.PrivateKey) > 0 {
-		account.PrivateKey = []byte(m.PrivateKey)
-	}
-	if len(m.Passphrase) > 0 {
-		account.Passphrase = []byte(config.DefaultConfig.Decode(m.Passphrase))
-	}
-	config, err := ssh.NewSSHConfig(nil, nil, account)
-	if err != nil {
-		return nil, err
-	}
-	sshClient := ssh.New(config)
-	err = sshClient.Connect(m.Host, m.Port)
-	if err != nil {
-		return nil, err
-	}
-	return sftp.NewClient(sshClient.Client)
 }
 
 func SftpSearch(ctx echo.Context, id uint) error {
@@ -72,7 +58,8 @@ func SftpSearch(ctx echo.Context, id uint) error {
 	if err != nil {
 		return err
 	}
-	client, err := sftpConnect(m.NgingSshUser)
+	cfg := sftpConfig(m.NgingSshUser)
+	client, err := cfg.Connect()
 	if err != nil {
 		return err
 	}
@@ -95,13 +82,9 @@ func Sftp(ctx echo.Context) error {
 	if err != nil {
 		return err
 	}
-	client, err := sftpConnect(m.NgingSshUser)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-
-	mgr := sftpmanager.New(client, config.DefaultConfig.Sys.EditableFileMaxBytes(), ctx)
+	cfg := sftpConfig(m.NgingSshUser)
+	mgr := sftpmanager.New(sftpmanager.DefaultConnector, &cfg, config.FromFile().Sys.EditableFileMaxBytes(), ctx)
+	defer mgr.Close()
 
 	ppath := ctx.Form(`path`)
 	do := ctx.Form(`do`)
@@ -115,7 +98,7 @@ func Sftp(ctx echo.Context) error {
 	switch do {
 	case `edit`:
 		data := ctx.Data()
-		if _, ok := config.DefaultConfig.Sys.Editable(ppath); !ok {
+		if _, ok := config.FromFile().Sys.Editable(ppath); !ok {
 			data.SetInfo(ctx.T(`此文件不能在线编辑`), 0)
 		} else {
 			content := ctx.Form(`content`)
@@ -194,6 +177,9 @@ func Sftp(ctx echo.Context) error {
 		next := ctx.Query(`next`)
 		if len(next) == 0 {
 			next = ctx.Referer()
+			if len(next) == 0 {
+				next = ctx.Request().URL().Path() + fmt.Sprintf(`?id=%d&path=%s`, id, com.URLEncode(path.Dir(ppath)))
+			}
 		}
 		return ctx.Redirect(next)
 	case `upload`:
@@ -241,11 +227,11 @@ func Sftp(ctx echo.Context) error {
 	ctx.Set(`pathLinks`, pathLinks)
 	ctx.Set(`pathPrefix`, pathPrefix)
 	ctx.SetFunc(`Editable`, func(fileName string) bool {
-		_, ok := config.DefaultConfig.Sys.Editable(fileName)
+		_, ok := config.FromFile().Sys.Editable(fileName)
 		return ok
 	})
 	ctx.SetFunc(`Playable`, func(fileName string) string {
-		mime, _ := config.DefaultConfig.Sys.Playable(fileName)
+		mime, _ := config.FromFile().Sys.Playable(fileName)
 		return mime
 	})
 	ctx.Set(`data`, m.NgingSshUser)
