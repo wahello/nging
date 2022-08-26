@@ -43,7 +43,7 @@ func File(ctx echo.Context) error {
 	filePath := ctx.Form(`path`)
 	do := ctx.Form(`do`)
 	root := downloadDir()
-	mgr := filemanager.New(root, config.DefaultConfig.Sys.EditableFileMaxBytes(), ctx)
+	mgr := filemanager.New(root, config.FromFile().Sys.EditableFileMaxBytes(), ctx)
 	absPath := root
 
 	if len(filePath) > 0 {
@@ -55,7 +55,7 @@ func File(ctx echo.Context) error {
 	switch do {
 	case `edit`:
 		data := ctx.Data()
-		if _, ok := config.DefaultConfig.Sys.Editable(absPath); !ok {
+		if _, ok := config.FromFile().Sys.Editable(absPath); !ok {
 			data.SetInfo(ctx.T(`此文件不能在线编辑`), 0)
 		} else {
 			content := ctx.Form(`content`)
@@ -90,6 +90,10 @@ func File(ctx echo.Context) error {
 		return ctx.JSON(data)
 	case `delete`:
 		paths := ctx.FormValues(`path`)
+		next := ctx.Referer()
+		if len(next) == 0 {
+			next = ctx.Request().URL().Path() + fmt.Sprintf(`?path=%s`, com.URLEncode(filepath.Dir(filePath)))
+		}
 		for _, filePath := range paths {
 			filePath = strings.TrimSpace(filePath)
 			if len(filePath) == 0 {
@@ -100,10 +104,10 @@ func File(ctx echo.Context) error {
 			err = mgr.Remove(absPath)
 			if err != nil {
 				handler.SendFail(ctx, err.Error())
-				return ctx.Redirect(ctx.Referer())
+				return ctx.Redirect(next)
 			}
 		}
-		return ctx.Redirect(ctx.Referer())
+		return ctx.Redirect(next)
 	case `upload`:
 		var cu *uploadClient.ChunkUpload
 		var opts []uploadClient.ChunkInfoOpter
@@ -148,11 +152,11 @@ func File(ctx echo.Context) error {
 	ctx.Set(`path`, filePath)
 	ctx.Set(`absPath`, absPath)
 	ctx.SetFunc(`Editable`, func(fileName string) bool {
-		_, ok := config.DefaultConfig.Sys.Editable(fileName)
+		_, ok := config.FromFile().Sys.Editable(fileName)
 		return ok
 	})
 	ctx.SetFunc(`Playable`, func(fileName string) string {
-		mime, _ := config.DefaultConfig.Sys.Playable(fileName)
+		mime, _ := config.FromFile().Sys.Playable(fileName)
 		return mime
 	})
 	return ctx.Render(`download/file`, err)
