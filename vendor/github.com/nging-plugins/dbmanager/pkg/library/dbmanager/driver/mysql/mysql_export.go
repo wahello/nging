@@ -20,6 +20,7 @@ package mysql
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -32,6 +33,7 @@ import (
 	loga "github.com/admpub/log"
 	"github.com/webx-top/com"
 	"github.com/webx-top/echo"
+	"github.com/webx-top/echo/code"
 
 	"github.com/admpub/nging/v4/application/handler"
 	"github.com/admpub/nging/v4/application/library/notice"
@@ -95,6 +97,9 @@ func (m *mySQL) bgExecManage(op utils.OP) error {
 }
 
 func (m *mySQL) Export() error {
+	if len(m.Form(`docType`)) > 0 {
+		return m.ExportDoc()
+	}
 	//fmt.Printf("%#v\n", m.getCharsetList())
 	process := m.Queryx(`process`).Bool()
 	if process {
@@ -124,7 +129,7 @@ func (m *mySQL) Export() error {
 			}
 			views := m.FormValues(`view`)
 			if len(views) == 1 && len(views[0]) > 0 {
-				views = append(tables, strings.Split(views[0], `,`)...)
+				views = strings.Split(views[0], `,`)
 			}
 			if len(views) > 0 {
 				tables = append(tables, views...)
@@ -295,4 +300,66 @@ func (m *mySQL) Export() error {
 		return m.JSON(data)
 	}
 	return m.Redirect(m.GenURL(`listTable`, m.dbName))
+}
+
+func (m *mySQL) ExportDoc() error {
+	if m.IsPost() {
+		var tables []string
+		if len(m.dbName) == 0 {
+			m.fail(m.T(`请选择数据库`))
+			return m.returnTo(m.GenURL(`listDb`))
+		}
+		tables = m.FormValues(`table`)
+		if len(tables) == 1 && len(tables[0]) > 0 {
+			tables = strings.Split(tables[0], `,`)
+		}
+		docType := m.Form(`docType`)
+		newExportorDoc, ok := docExportors[docType]
+		if !ok {
+			return m.NewError(code.InvalidParameter, `不支持导出文档类型: %s`, docType)
+		}
+		exportor := newExportorDoc(m.dbName)
+		err := exportor.Open(m.Context)
+		if err != nil {
+			return err
+		}
+		for _, table := range tables {
+			origFields, sortFields, err := m.tableFields(table)
+			if err != nil {
+				return err
+			}
+			stt, _, err := m.getTableStatus(m.dbName, table, false)
+			if err != nil {
+				return err
+			}
+			var tableStatus *TableStatus
+			if ts, ok := stt[table]; ok {
+				tableStatus = ts
+			} else {
+				tableStatus = &TableStatus{Name: sql.NullString{Valid: true, String: table}}
+			}
+			postFields := make([]*Field, len(sortFields))
+			for k, v := range sortFields {
+				postFields[k] = origFields[v]
+			}
+			err = exportor.Write(m.Context, tableStatus, postFields)
+			if err != nil {
+				return err
+			}
+		}
+		return exportor.Close(m.Context)
+	}
+	return m.Redirect(m.GenURL(`listTable`, m.dbName))
+}
+
+type DocExportor interface {
+	Open(echo.Context) error
+	Write(echo.Context, *TableStatus, []*Field) error
+	Close(echo.Context) error
+}
+
+var docExportors = map[string]func(dbName string) DocExportor{
+	`html`:     newHTMLDocExportor,
+	`markdown`: newMarkdownDocExportor,
+	`csv`:      newCSVDocExportor,
 }
