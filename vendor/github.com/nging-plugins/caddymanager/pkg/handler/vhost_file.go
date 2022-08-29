@@ -47,7 +47,7 @@ func VhostFile(ctx echo.Context) error {
 	do := ctx.Form(`do`)
 	m := model.NewVhost(ctx)
 	err = m.Get(nil, db.Cond{`id`: id})
-	mgr := filemanager.New(m.Root, config.DefaultConfig.Sys.EditableFileMaxBytes(), ctx)
+	mgr := filemanager.New(m.Root, config.FromFile().Sys.EditableFileMaxBytes(), ctx)
 	absPath := m.Root
 	user := handler.User(ctx)
 	if err == nil && len(m.Root) > 0 {
@@ -98,7 +98,11 @@ func VhostFile(ctx echo.Context) error {
 			if err != nil {
 				handler.SendFail(ctx, err.Error())
 			}
-			return ctx.Redirect(ctx.Referer())
+			next := ctx.Referer()
+			if len(next) == 0 {
+				next = ctx.Request().URL().Path() + fmt.Sprintf(`?id=%d&path=%s`, id, com.URLEncode(filepath.Dir(filePath)))
+			}
+			return ctx.Redirect(next)
 		case `upload`:
 			var cu *uploadClient.ChunkUpload
 			var opts []uploadClient.ChunkInfoOpter
@@ -157,9 +161,9 @@ func VhostFile(ctx echo.Context) error {
 }
 
 func Editable(fileName string) (string, bool) {
-	return config.DefaultConfig.Sys.Editable(fileName)
+	return config.FromFile().Sys.Editable(fileName)
 }
 
 func Playable(fileName string) (string, bool) {
-	return config.DefaultConfig.Sys.Playable(fileName)
+	return config.FromFile().Sys.Playable(fileName)
 }
