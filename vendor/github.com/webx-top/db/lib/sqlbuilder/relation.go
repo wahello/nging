@@ -36,23 +36,19 @@ func (sel *selector) Relation(name string, fn BuilderChainFunc) Selector {
 	})
 }
 
-func eachField(t reflect.Type, fn func(fieldInfo *reflectx.FieldInfo, relations []string, pipes []Pipe) error) error {
-	typeMap := mapper.TypeMap(t)
-	options, ok := typeMap.Options[`relation`]
-	if !ok {
-		return nil
+func parseRelationData(fieldInfo *reflectx.FieldInfo) (*parsedRelation, error) {
+	// `db:"-,relation=ForeignKey:RelationKey"`
+	// `db:"-,relation=外键名:关联键名|gtZero|eq(field:value)"`
+	// `db:"-,relation=ForeignKey:RelationKey,dbconn=link2,columns=colName&colName2"`
+	rel, ok := fieldInfo.Options[`relation`]
+	if !ok || len(rel) == 0 || rel == `-` {
+		return nil, nil
 	}
-	for _, fieldInfo := range options {
-		// `db:"-,relation=ForeignKey:RelationKey"`
-		// `db:"-,relation=外键名:关联键名|gtZero|eq(field:value)"`
-		// `db:"-,relation=ForeignKey:RelationKey,dbconn=link2,columns=colName&colName2"`
-		rel, ok := fieldInfo.Options[`relation`]
-		if !ok || len(rel) == 0 || rel == `-` {
-			continue
-		}
+	r := getRelationCache(fieldInfo.Field)
+	if r == nil {
 		relations := strings.SplitN(rel, `:`, 2)
 		if len(relations) != 2 {
-			return fmt.Errorf("wrong relation option, length must 2, but get %v. Reference format: `db:\"-,relation=ForeignKey:RelationKey\"`", relations)
+			return nil, fmt.Errorf("wrong relation option, length must 2, but get %v. Reference format: `db:\"-,relation=ForeignKey:RelationKey\"`", relations)
 		}
 		rels := strings.Split(relations[1], `|`)
 		var pipes []Pipe
@@ -66,7 +62,27 @@ func eachField(t reflect.Type, fn func(fieldInfo *reflectx.FieldInfo, relations 
 				pipes = append(pipes, pipe)
 			}
 		}
-		err := fn(fieldInfo, relations, pipes)
+		r = NewParsedRelation(relations, pipes)
+		setRelationCache(fieldInfo.Field, r)
+	}
+	return r, nil
+}
+
+func eachField(t reflect.Type, fn func(fieldInfo *reflectx.FieldInfo, relations []string, pipes []Pipe) error) error {
+	typeMap := mapper.TypeMap(t)
+	options, ok := typeMap.Options[`relation`]
+	if !ok {
+		return nil
+	}
+	for _, fieldInfo := range options {
+		r, err := parseRelationData(fieldInfo)
+		if err != nil {
+			return err
+		}
+		if r == nil {
+			continue
+		}
+		err = fn(fieldInfo, r.relations, r.pipes)
 		if err != nil {
 			return err
 		}
@@ -103,15 +119,25 @@ func buildCondPrepare(fieldInfo *reflectx.FieldInfo, cond db.Compound) db.Compou
 	if !ok {
 		return cond
 	}
-	conds := []db.Compound{cond}
-	for _, colName := range strings.Split(where, `&`) {
-		colName = strings.TrimSpace(colName)
-		if len(colName) == 0 {
-			continue
+
+	r := getRelationCache(fieldInfo.Field)
+	kvs := r.Where()
+	if kvs == nil {
+		kvs = &[]*kv{}
+		for _, colName := range strings.Split(where, `&`) {
+			colName = strings.TrimSpace(colName)
+			if len(colName) == 0 {
+				continue
+			}
+			parts := strings.SplitN(colName, `:`, 2)
+			colName = parts[0]
+			colValue := parseRelationExtraParam(parts[1])
+			*kvs = append(*kvs, &kv{k: colName, v: colValue})
 		}
-		parts := strings.SplitN(colName, `:`, 2)
-		colName = parts[0]
-		colValue := parseRelationExtraParam(parts[1])
+		r.setWhere(kvs)
+	}
+	conds := []db.Compound{cond}
+	for colName, colValue := range *kvs {
 		conds = append(conds, db.Cond{
 			colName: colValue,
 		})
@@ -150,73 +176,87 @@ func buildCond(fieldInfo *reflectx.FieldInfo, refVal reflect.Value, relations []
 }
 
 func buildSelector(fieldInfo *reflectx.FieldInfo, sel Selector, mustColumnName string, hasMustCol *bool, dataTypes *map[string]string) Selector {
-	orderby, ok := fieldInfo.Options[`orderby`] // orderby=col1&-col2&col3
-	if ok && len(orderby) > 0 {
-		var sorts []interface{}
-		for _, colName := range strings.Split(orderby, `&`) {
-			colName = strings.TrimSpace(colName)
-			if len(colName) == 0 {
-				continue
+	r := getRelationCache(fieldInfo.Field)
+	args := r.SelectorArgs()
+	if args == nil {
+		args = &selectorArgs{}
+		orderby, ok := fieldInfo.Options[`orderby`] // orderby=col1&-col2&col3
+		if ok && len(orderby) > 0 {
+			for _, colName := range strings.Split(orderby, `&`) {
+				colName = strings.TrimSpace(colName)
+				if len(colName) == 0 {
+					continue
+				}
+				args.orderby = append(args.orderby, parseRelationExtraParam(colName))
 			}
-			sorts = append(sorts, parseRelationExtraParam(colName))
 		}
-		if len(sorts) > 0 {
-			sel = sel.OrderBy(sorts...)
+		offset, ok := fieldInfo.Options[`offset`] // offset=5,limit=20
+		if ok && len(offset) > 0 {
+			args.offset = param.AsInt(offset)
 		}
-	}
-	offset, ok := fieldInfo.Options[`offset`] // offset=5,limit=20
-	if ok && len(offset) > 0 {
-		offsetN := param.AsInt(offset)
-		if offsetN > 0 {
-			sel = sel.Offset(offsetN)
+		limit, ok := fieldInfo.Options[`limit`] // limit=1
+		if ok && len(limit) > 0 {
+			args.limit = param.AsInt(limit)
 		}
-	}
-	limit, ok := fieldInfo.Options[`limit`] // limit=1
-	if ok && len(limit) > 0 {
-		limitN := param.AsInt(limit)
-		if limitN > 0 {
-			sel = sel.Limit(limitN)
-		}
-	}
-	groupby, ok := fieldInfo.Options[`groupby`] // groupby=index&gendar
-	if ok && len(groupby) > 0 {
-		var items []interface{}
-		for _, colName := range strings.Split(groupby, `&`) {
-			colName = strings.TrimSpace(colName)
-			if len(colName) == 0 {
-				continue
+		groupby, ok := fieldInfo.Options[`groupby`] // groupby=index&gendar
+		if ok && len(groupby) > 0 {
+			for _, colName := range strings.Split(groupby, `&`) {
+				colName = strings.TrimSpace(colName)
+				if len(colName) == 0 {
+					continue
+				}
+				args.groupby = append(args.groupby, parseRelationExtraParam(colName))
 			}
-			items = append(items, parseRelationExtraParam(colName))
 		}
-		if len(items) > 0 {
-			sel = sel.GroupBy(items...)
+		columns, ok := fieldInfo.Options[`columns`] // columns=col1:uint&col2:string&col3:uint64
+		if ok && len(columns) > 0 {
+			for _, colName := range strings.Split(columns, `&`) {
+				colName = strings.TrimSpace(colName)
+				if len(colName) == 0 {
+					continue
+				}
+				parts := strings.SplitN(colName, `:`, 2)
+				colName = parts[0]
+				col := &colType{col: parseRelationExtraParam(colName)}
+				if len(parts) == 2 {
+					col.typ = parts[1]
+				}
+				col.colStr = param.AsString(col.col)
+				args.columns = append(args.columns, col)
+			}
 		}
+		r.setSelectorArgs(args)
 	}
-	columns, ok := fieldInfo.Options[`columns`] // columns=col1:uint&col2:string&col3:uint64
-	if !ok || len(columns) == 0 {
+	if len(args.orderby) > 0 {
+		sel = sel.OrderBy(args.orderby...)
+	}
+	if args.offset > 0 {
+		sel = sel.Offset(args.offset)
+	}
+	if args.limit > 0 {
+		sel = sel.Limit(args.limit)
+	}
+	if len(args.groupby) > 0 {
+		sel = sel.GroupBy(args.groupby...)
+	}
+	if len(args.columns) == 0 {
 		if hasMustCol != nil {
 			*hasMustCol = true
 		}
 		return sel
 	}
-	cols := []interface{}{}
+	cols := make([]interface{}, len(args.columns))
 	var _hasMustCol bool
 	if len(mustColumnName) == 0 {
 		_hasMustCol = true
 	}
-	for _, colName := range strings.Split(columns, `&`) {
-		colName = strings.TrimSpace(colName)
-		if len(colName) == 0 {
-			continue
-		}
-		parts := strings.SplitN(colName, `:`, 2)
-		colName = parts[0]
-		if !_hasMustCol && colName == mustColumnName {
+	for idx, col := range args.columns {
+		if !_hasMustCol && col.col == mustColumnName {
 			_hasMustCol = true
 		}
-		cols = append(cols, parseRelationExtraParam(colName))
-		if len(parts) == 2 && dataTypes != nil {
-			(*dataTypes)[colName] = parts[1]
+		cols[idx] = col.col
+		if dataTypes != nil && len(col.typ) > 0 {
+			(*dataTypes)[col.colStr] = col.typ
 		}
 	}
 	if !_hasMustCol {
@@ -387,6 +427,7 @@ func RelationAll(builder SQLBuilder, data interface{}, relationMap map[string]Bu
 		fieldName := relations[ForeignKeyIndex]
 		rFieldName := relations[RelationKeyIndex]
 		relValKind := mapper.FieldByName(refVal.Index(0), rFieldName).Kind()
+		skipped := map[int]struct{}{}
 		// get relation field values and unique
 		if len(pipes) == 0 {
 			for j := 0; j < l; j++ {
@@ -403,6 +444,7 @@ func RelationAll(builder SQLBuilder, data interface{}, relationMap map[string]Bu
 					}
 				}
 				if v == nil {
+					skipped[j] = struct{}{}
 					continue
 				}
 				if vs, ok := v.([]interface{}); ok {
@@ -509,6 +551,9 @@ func RelationAll(builder SQLBuilder, data interface{}, relationMap map[string]Bu
 			needConversion := relValKind != ft && ft != reflect.Invalid
 			// Set the result to the model
 			for j := 0; j < l; j++ {
+				if _, sk := skipped[j]; sk {
+					continue
+				}
 				v := refVal.Index(j)
 				fid := mapper.FieldByName(v, rFieldName)
 				val := fid.Interface()
@@ -616,6 +661,9 @@ func RelationAll(builder SQLBuilder, data interface{}, relationMap map[string]Bu
 			needConversion := relValKind != ft && ft != reflect.Invalid
 			// Set the result to the model
 			for j := 0; j < l; j++ {
+				if _, sk := skipped[j]; sk {
+					continue
+				}
 				v := refVal.Index(j)
 				fid := mapper.FieldByName(v, rFieldName)
 				val := fid.Interface()
