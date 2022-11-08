@@ -36,8 +36,9 @@ type Context interface {
 	WithContext(ctx context.Context) *http.Request
 	SetValue(key string, value interface{})
 
-	Validator
 	SetValidator(Validator)
+	Validator() Validator
+	Validate(item interface{}, args ...interface{}) error
 	Translator
 	SetTranslator(Translator)
 	Request() engine.Request
@@ -164,7 +165,9 @@ type Context interface {
 	SetAuto(on bool) Context
 	Fetch(string, interface{}) ([]byte, error)
 	SetRenderer(Renderer)
+	SetRenderDataWrapper(DataWrapper)
 	Renderer() Renderer
+	RenderDataWrapper() DataWrapper
 
 	//----------------
 	// Cookie
