@@ -10,9 +10,9 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/admpub/copier"
 	"github.com/admpub/log"
 
+	"github.com/webx-top/com"
 	"github.com/webx-top/echo/engine"
 	"github.com/webx-top/echo/logger"
 	"github.com/webx-top/echo/param"
@@ -50,23 +50,11 @@ func (b *binder) MustBind(i interface{}, c Context, filter ...FormDataFilter) er
 	return ErrUnsupportedMediaType
 }
 
-func (b *binder) MustBindAndValidate(i interface{}, c Context, filter ...FormDataFilter) (err error) {
-	err = b.MustBind(i, c, filter...)
-	if err != nil {
-		return
-	}
-	if before, ok := i.(BeforeValidate); ok {
-		if err = before.BeforeValidate(c); err != nil {
-			return
-		}
-	}
-	if err = c.Validate(i).Error(); err != nil {
+func (b *binder) MustBindAndValidate(i interface{}, c Context, filter ...FormDataFilter) error {
+	if err := b.MustBind(i, c, filter...); err != nil {
 		return err
 	}
-	if after, ok := i.(AfterValidate); ok {
-		err = after.AfterValidate(c)
-	}
-	return
+	return ValidateStruct(c, i)
 }
 
 func (b *binder) Bind(i interface{}, c Context, filter ...FormDataFilter) (err error) {
@@ -77,26 +65,13 @@ func (b *binder) Bind(i interface{}, c Context, filter ...FormDataFilter) (err e
 	return
 }
 
-func (b *binder) BindAndValidate(i interface{}, c Context, filter ...FormDataFilter) (err error) {
-	err = b.MustBind(i, c, filter...)
-	if err != nil {
-		if err == ErrUnsupportedMediaType {
-			return nil
-		}
-		return
-	}
-	if before, ok := i.(BeforeValidate); ok {
-		if err = before.BeforeValidate(c); err != nil {
-			return
+func (b *binder) BindAndValidate(i interface{}, c Context, filter ...FormDataFilter) error {
+	if err := b.MustBind(i, c, filter...); err != nil {
+		if err != ErrUnsupportedMediaType {
+			return err
 		}
 	}
-	if err = c.Validate(i).Error(); err != nil {
-		return err
-	}
-	if after, ok := i.(AfterValidate); ok {
-		err = after.AfterValidate(c)
-	}
-	return
+	return ValidateStruct(c, i)
 }
 
 func (b *binder) SetDecoders(decoders map[string]func(interface{}, Context, ...FormDataFilter) error) {
@@ -156,7 +131,7 @@ func NamedStructMap(e *Echo, m interface{}, data map[string][]string, topName st
 	default:
 		return errors.New(`binder: unsupported type ` + tc.Kind().String())
 	}
-	keyNormalizer := strings.Title
+	keyNormalizer := com.Title
 	if bkn, ok := m.(BinderKeyNormalizer); ok {
 		keyNormalizer = bkn.BinderKeyNormalizer
 	}
@@ -244,7 +219,13 @@ func parseFormItem(keyNormalizer func(string) string, e *Echo, m interface{}, ty
 
 		//最后一个元素
 		if i == length-1 {
-			err := setStructField(e.Logger(), tc, vc, key, name, value, typev, values)
+			var err error
+			switch value.Kind() {
+			case reflect.Map:
+				err = setMap(e.Logger(), tc, vc, key, name, value, typev, values)
+			default:
+				err = setStructField(e.Logger(), tc, vc, key, name, value, typev, values)
+			}
 			if err == nil {
 				continue
 			}
@@ -290,8 +271,12 @@ func parseFormItem(keyNormalizer func(string) string, e *Echo, m interface{}, ty
 					newV.Set(reflect.New(newT))
 				}
 				newV = newV.Elem()
+			case reflect.Map:
+				if newV.IsNil() {
+					newV.Set(reflect.MakeMap(newT))
+				}
 			default:
-				return errors.New(`binder: unsupported type ` + tc.Kind().String())
+				return errors.New(`binder: [parseFormItem#slice] unsupported type ` + tc.Kind().String() + `: ` + propPath)
 			}
 			return parseFormItem(keyNormalizer, e, m, newT, newV, names[i+1:], propPath+`.`, checkPath+`.`, key, values, filters...)
 		case reflect.Map:
@@ -320,8 +305,13 @@ func parseFormItem(keyNormalizer func(string) string, e *Echo, m interface{}, ty
 					value.SetMapIndex(index, newV)
 				}
 				newV = newV.Elem()
+			case reflect.Map:
+				if newV.IsNil() {
+					newV = reflect.MakeMap(newT)
+					value.SetMapIndex(index, newV)
+				}
 			default:
-				return errors.New(`binder: unsupported type ` + tc.Kind().String())
+				return errors.New(`binder: [parseFormItem#map] unsupported type ` + tc.Kind().String() + `: ` + propPath)
 			}
 			return parseFormItem(keyNormalizer, e, m, newT, newV, names[i+1:], propPath+`.`, checkPath+`.`, key, values, filters...)
 		case reflect.Struct:
@@ -373,55 +363,40 @@ var (
 	ErrSliceIndexTooLarge = errors.New("the slice index value of the form field is too large")
 )
 
-func SafeGetFieldByName(parentT reflect.Type, parentV reflect.Value, name string, value reflect.Value) (v reflect.Value) {
-	defer func() {
-		if r := recover(); r != nil {
-			switch fmt.Sprint(r) {
-			case `reflect: indirection through nil pointer to embedded struct`:
-				copier.InitNilFields(parentT, parentV, ``, copier.AllNilFields)
-				v = value.FieldByName(name)
-			default:
-				panic(fmt.Sprintf(`%v: %s (%v)`, r, name, value.Kind()))
+func SafeGetFieldByName(value reflect.Value, name string) (v reflect.Value) {
+	var destFieldNotSet bool
+	if f, ok := value.Type().FieldByName(name); ok {
+		// only initialize parent embedded struct pointer in the path
+		for idx := range f.Index[:len(f.Index)-1] {
+			destField := value.FieldByIndex(f.Index[:idx+1])
+
+			if destField.Kind() != reflect.Ptr {
+				continue
 			}
+
+			if !destField.IsNil() {
+				continue
+			}
+			if !destField.CanSet() {
+				destFieldNotSet = true
+				break
+			}
+
+			// destField is a nil pointer that can be set
+			newValue := reflect.New(destField.Type().Elem())
+			destField.Set(newValue)
 		}
-	}()
+	}
+
+	if destFieldNotSet {
+		return
+	}
 	v = value.FieldByName(name)
 	return
 }
 
 func setStructField(logger logger.Logger, parentT reflect.Type, parentV reflect.Value, k string, name string, value reflect.Value, typev reflect.Type, values []string) error {
-	switch value.Kind() {
-	case reflect.Map:
-		if value.IsNil() {
-			value.Set(reflect.MakeMap(value.Type()))
-		}
-		value = reflect.Indirect(value)
-		index := reflect.ValueOf(name)
-		if oldVal := value.MapIndex(index); oldVal.IsValid() {
-			if oldVal.Type().Kind() == reflect.Interface {
-				oldVal = reflect.Indirect(reflect.ValueOf(oldVal.Interface()))
-			}
-			isPtr := oldVal.CanAddr()
-			if !isPtr {
-				oldVal = reflect.New(oldVal.Type())
-			}
-			err := setField(logger, parentT, oldVal.Elem(), reflect.StructField{Name: name}, name, values)
-			if err == nil {
-				if !isPtr {
-					oldVal = reflect.Indirect(oldVal)
-				}
-				value.SetMapIndex(index, oldVal)
-			}
-			return err
-		}
-		if len(values) > 1 {
-			value.SetMapIndex(index, reflect.ValueOf(values))
-		} else {
-			value.SetMapIndex(index, reflect.ValueOf(values[0]))
-		}
-		return nil
-	}
-	tv := SafeGetFieldByName(parentT, parentV, name, value)
+	tv := SafeGetFieldByName(value, name)
 	if !tv.IsValid() {
 		return ErrBreak
 	}
@@ -438,6 +413,51 @@ func setStructField(logger logger.Logger, parentT reflect.Type, parentV reflect.
 		tv = tv.Elem()
 	}
 	return setField(logger, parentT, tv, f, name, values)
+}
+
+func setMap(logger logger.Logger, parentT reflect.Type, parentV reflect.Value, k string, name string, value reflect.Value, typev reflect.Type, values []string) error {
+	if value.IsNil() {
+		value.Set(reflect.MakeMap(value.Type()))
+	}
+	value = reflect.Indirect(value)
+	index := reflect.ValueOf(name)
+	oldVal := value.MapIndex(index)
+	if !oldVal.IsValid() {
+		oldType := value.Type().Elem()
+		oldVal = reflect.New(oldType).Elem()
+		switch oldVal.Kind() {
+		case reflect.String:
+			value.SetMapIndex(index, reflect.ValueOf(values[0]))
+		case reflect.Interface:
+			if len(values) > 1 {
+				value.SetMapIndex(index, reflect.ValueOf(values))
+			} else {
+				value.SetMapIndex(index, reflect.ValueOf(values[0]))
+			}
+		case reflect.Slice:
+			setSlice(logger, name, oldVal, values)
+			value.SetMapIndex(index, oldVal)
+		default:
+			value.SetMapIndex(index, oldVal)
+			return errors.New(`binder: [setStructField] unsupported type ` + oldVal.Kind().String() + `: ` + name)
+		}
+		return nil
+	}
+	if oldVal.Type().Kind() == reflect.Interface {
+		oldVal = reflect.Indirect(reflect.ValueOf(oldVal.Interface()))
+	}
+	isPtr := oldVal.CanAddr()
+	if !isPtr {
+		oldVal = reflect.New(oldVal.Type())
+	}
+	err := setField(logger, parentT, oldVal.Elem(), reflect.StructField{Name: name}, name, values)
+	if err == nil {
+		if !isPtr {
+			oldVal = reflect.Indirect(oldVal)
+		}
+		value.SetMapIndex(index, oldVal)
+	}
+	return err
 }
 
 func setField(logger logger.Logger, parentT reflect.Type, tv reflect.Value, f reflect.StructField, name string, values []string) error {
@@ -634,6 +654,7 @@ func setSlice(logger logger.Logger, fieldName string, tv reflect.Value, t []stri
 			logger.Warnf(`binder: slice error: %v, %v`, fieldName, err)
 		}
 	}
+
 }
 
 // FromConversion a struct implements this interface can be convert from request param to a struct
@@ -666,6 +687,16 @@ var (
 			fName = fieldName
 		} else {
 			fName = topName + "." + fieldName
+		}
+		return fName
+	}
+	//ArrayFieldNameFormatter 格式化函数(struct->form)
+	ArrayFieldNameFormatter FieldNameFormatter = func(topName, fieldName string) string {
+		var fName string
+		if len(topName) == 0 {
+			fName = fieldName
+		} else {
+			fName = topName + `[` + fieldName + `]`
 		}
 		return fName
 	}
@@ -763,7 +794,7 @@ func TranslateStringer(t Translator, args ...interface{}) param.Stringer {
 	})
 }
 
-//FormatFieldValue 格式化字段值
+// FormatFieldValue 格式化字段值
 func FormatFieldValue(formatters map[string]FormDataFilter, keyNormalizerArg ...func(string) string) FormDataFilter {
 	newFormatters := map[string]FormDataFilter{}
 	keyNormalizer := strings.Title
@@ -782,13 +813,13 @@ func FormatFieldValue(formatters map[string]FormDataFilter, keyNormalizerArg ...
 	}
 }
 
-//IncludeFieldName 包含字段
+// IncludeFieldName 包含字段
 func IncludeFieldName(fieldNames ...string) FormDataFilter {
 	for k, v := range fieldNames {
-		fieldNames[k] = strings.Title(v)
+		fieldNames[k] = com.Title(v)
 	}
 	return func(k string, v []string) (string, []string) {
-		tk := strings.Title(k)
+		tk := com.Title(k)
 		for _, fv := range fieldNames {
 			if fv == tk {
 				return k, v
@@ -798,13 +829,13 @@ func IncludeFieldName(fieldNames ...string) FormDataFilter {
 	}
 }
 
-//ExcludeFieldName 排除字段
+// ExcludeFieldName 排除字段
 func ExcludeFieldName(fieldNames ...string) FormDataFilter {
 	for k, v := range fieldNames {
-		fieldNames[k] = strings.Title(v)
+		fieldNames[k] = com.Title(v)
 	}
 	return func(k string, v []string) (string, []string) {
-		tk := strings.Title(k)
+		tk := com.Title(k)
 		for _, fv := range fieldNames {
 			if fv == tk {
 				return ``, v
@@ -822,16 +853,19 @@ func SetFormValue(f engine.URLValuer, fName string, index int, value interface{}
 	}
 }
 
-//FlatStructToForm 映射struct到form
+// FlatStructToForm 映射struct到form
 func FlatStructToForm(ctx Context, m interface{}, fieldNameFormatter FieldNameFormatter, formatters ...param.StringerMap) {
 	StructToForm(ctx, m, ``, fieldNameFormatter, formatters...)
 }
 
-//StructToForm 映射struct到form
+// StructToForm 映射struct到form
 func StructToForm(ctx Context, m interface{}, topName string, fieldNameFormatter FieldNameFormatter, formatters ...param.StringerMap) {
 	var formatter param.StringerMap
 	if len(formatters) > 0 {
 		formatter = formatters[0]
+	}
+	if fieldNameFormatter == nil {
+		fieldNameFormatter = DefaultFieldNameFormatter
 	}
 	vc := reflect.ValueOf(m)
 	tc := reflect.TypeOf(m)
@@ -850,10 +884,7 @@ func StructToForm(ctx Context, m interface{}, topName string, fieldNameFormatter
 			if !srcVal.CanInterface() || srcVal.Interface() == nil {
 				continue
 			}
-			key := srcKey.String()
-			if len(topName) > 0 {
-				key = topName + `.` + key
-			}
+			key := fieldNameFormatter(topName, srcKey.String())
 			switch srcVal.Kind() {
 			case reflect.Ptr:
 				StructToForm(ctx, srcVal.Interface(), key, fieldNameFormatter, formatters...)
@@ -868,12 +899,7 @@ func StructToForm(ctx Context, m interface{}, topName string, fieldNameFormatter
 		//fieldToForm(ctx, tc, reflect.StructField{}, vc, topName, fieldNameFormatter, formatter)
 		return
 	}
-	l := tc.NumField()
-	if fieldNameFormatter == nil {
-		fieldNameFormatter = DefaultFieldNameFormatter
-	}
-
-	for i := 0; i < l; i++ {
+	for i, l := 0, tc.NumField(); i < l; i++ {
 		fVal := vc.Field(i)
 		fStruct := tc.Field(i)
 		fieldToForm(ctx, tc, fStruct, fVal, topName, fieldNameFormatter, formatter)
