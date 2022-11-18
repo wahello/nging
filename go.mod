@@ -30,7 +30,7 @@ require (
 	github.com/admpub/caddy v1.1.11 // indirect
 	github.com/admpub/ccs-gm v0.0.3
 	github.com/admpub/checksum v1.0.1
-	github.com/admpub/color v1.8.0
+	github.com/admpub/color v1.8.1
 	github.com/admpub/confl v0.2.2
 	github.com/admpub/cron v0.0.1
 	github.com/admpub/dgoogauth v0.0.1
@@ -55,7 +55,7 @@ require (
 	github.com/admpub/imaging v1.5.0 // indirect
 	github.com/admpub/ip2region v1.2.11
 	github.com/admpub/license_gen v0.1.0
-	github.com/admpub/log v1.3.2
+	github.com/admpub/log v1.3.3
 	github.com/admpub/mahonia v0.0.0-20151019004008-c528b747d92d
 	github.com/admpub/mail v0.0.0-20170408110349-d63147b0317b
 	github.com/admpub/marmot v0.0.0-20200702042226-2170d9ff59f5
@@ -89,7 +89,7 @@ require (
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-ping/ping v0.0.0-20211130115550-779d1e919534 // indirect
 	github.com/go-redis/redis/v8 v8.11.5 // indirect
-	github.com/goccy/go-json v0.9.7 // indirect
+	github.com/goccy/go-json v0.9.11 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/grandcat/zeroconf v1.0.0 // indirect
 	github.com/hashicorp/consul/api v1.12.0 // indirect
@@ -120,21 +120,19 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.1
 	github.com/syndtr/goleveldb v1.0.0
-	github.com/tdewolff/minify v2.3.6+incompatible // indirect
-	github.com/tdewolff/parse v2.3.4+incompatible // indirect
-	github.com/webx-top/captcha v0.0.1
+	github.com/webx-top/captcha v0.1.0
 	github.com/webx-top/chardet v0.0.1 // indirect
 	github.com/webx-top/client v0.6.7
 	github.com/webx-top/codec v0.2.0
-	github.com/webx-top/com v0.5.0
-	github.com/webx-top/db v1.21.1
-	github.com/webx-top/echo v2.26.6+incompatible
+	github.com/webx-top/com v0.8.1
+	github.com/webx-top/db v1.23.12
+	github.com/webx-top/echo v2.31.0+incompatible
 	github.com/webx-top/image v0.0.9
-	github.com/webx-top/pagination v0.1.1 // indirect
+	github.com/webx-top/pagination v0.2.1 // indirect
 	gocloud.dev v0.25.0
-	golang.org/x/crypto v0.0.0-20220518034528-6f7dac969898
-	golang.org/x/net v0.0.0-20220520000938-2e3eb7b945c2
-	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
+	golang.org/x/crypto v0.3.0
+	golang.org/x/net v0.2.0
+	golang.org/x/sync v0.1.0
 	google.golang.org/genproto v0.0.0-20220519153652-3a47de7e79bd // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
@@ -158,7 +156,6 @@ require (
 require (
 	github.com/PuerkitoBio/goquery v1.8.0 // indirect
 	github.com/admpub/archiver v1.1.4 // indirect
-	github.com/admpub/copier v0.0.2 // indirect
 	github.com/admpub/cr v0.0.2 // indirect
 	github.com/admpub/frp v0.37.1 // indirect
 	github.com/admpub/fsnotify v1.5.0 // indirect
@@ -228,7 +225,7 @@ require (
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-playground/locales v0.14.0 // indirect
 	github.com/go-playground/universal-translator v0.18.0 // indirect
-	github.com/go-playground/validator/v10 v10.11.0 // indirect
+	github.com/go-playground/validator/v10 v10.11.1 // indirect
 	github.com/go-sql-driver/mysql v1.6.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
@@ -263,7 +260,7 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/kavu/go_reuseport v1.5.0 // indirect
-	github.com/klauspost/compress v1.15.4 // indirect
+	github.com/klauspost/compress v1.15.12 // indirect
 	github.com/klauspost/cpuid v1.3.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.12 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect
@@ -276,9 +273,9 @@ require (
 	github.com/marten-seemann/qtls-go1-16 v0.1.5 // indirect
 	github.com/marten-seemann/qtls-go1-17 v0.1.1 // indirect
 	github.com/marten-seemann/qtls-go1-18 v0.1.1 // indirect
-	github.com/mattn/go-colorable v0.1.12 // indirect
-	github.com/mattn/go-isatty v0.0.14 // indirect
-	github.com/mattn/go-sqlite3 v1.14.13 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.16 // indirect
+	github.com/mattn/go-sqlite3 v1.14.16 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/minio/sha256-simd v1.0.0 // indirect
@@ -310,8 +307,8 @@ require (
 	github.com/rubyist/circuitbreaker v2.2.1+incompatible // indirect
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd // indirect
 	github.com/samuel/go-zookeeper v0.0.0-20201211165307-7117e9ea2414 // indirect
+	github.com/segmentio/fasthash v1.0.3 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
-	github.com/tdewolff/test v1.0.6 // indirect
 	github.com/tebeka/selenium v0.9.9 // indirect
 	github.com/templexxx/cpufeat v0.0.0-20180724012125-cef66df7f161 // indirect
 	github.com/templexxx/xor v0.0.0-20191217153810-f85b25db303b // indirect
@@ -340,12 +337,12 @@ require (
 	goftp.io/server/v2 v2.0.0 // indirect
 	golang.org/x/image v0.0.0-20220413100746-70e8d0d3baa9 // indirect
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
-	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3 // indirect
+	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5 // indirect
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
-	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/sys v0.2.0 // indirect
+	golang.org/x/text v0.4.0 // indirect
 	golang.org/x/time v0.0.0-20220411224347-583f2d630306 // indirect
-	golang.org/x/tools v0.1.10 // indirect
+	golang.org/x/tools v0.1.12 // indirect
 	golang.org/x/xerrors v0.0.0-20220517211312-f3a8303e98df // indirect
 	google.golang.org/api v0.80.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
@@ -354,6 +351,6 @@ require (
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	rsc.io/qr v0.2.0 // indirect
 )
