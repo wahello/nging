@@ -30,8 +30,8 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/admpub/log"
@@ -105,7 +105,6 @@ type Standard struct {
 	getFuncs           func() map[string]interface{}
 	logger             logger.Logger
 	fileEvents         []func(string)
-	mutex              sync.RWMutex
 	quotedLeft         string
 	quotedRight        string
 	quotedRfirst       string
@@ -243,51 +242,42 @@ func (a *Standard) InitRegexp() {
 
 // Render HTML
 func (a *Standard) Render(w io.Writer, tmplName string, values interface{}, c echo.Context) error {
-	// if c.Get(`webx:render.locked`) == nil {
-	// 	c.Set(`webx:render.locked`, true)
-	// 	a.mutex.Lock()
-	// 	defer func() {
-	// 		a.mutex.Unlock()
-	// 		c.Delete(`webx:render.locked`)
-	// 	}()
-	// }
-	tmpl, err := a.parse(c, tmplName)
+	return a.RenderBy(w, tmplName, a.RawContent, values, c)
+}
+
+// RenderBy render by content
+func (a *Standard) RenderBy(w io.Writer, tmplName string, tmplContent func(string) ([]byte, error), values interface{}, c echo.Context) error {
+	tmpl, err := a.parse(c, tmplName, tmplContent)
 	if err != nil {
 		return err
 	}
 	return tmpl.ExecuteTemplate(w, tmpl.Name(), values)
 }
 
-func (a *Standard) parse(c echo.Context, tmplName string) (tmpl *htmlTpl.Template, err error) {
-	funcs := c.Funcs()
+func (a *Standard) parse(c echo.Context, tmplName string, tmplContent func(string) ([]byte, error)) (tmpl *htmlTpl.Template, err error) {
 	tmplOriginalName := tmplName
 	tmplName = tmplName + a.Ext
 	tmplName = a.TmplPath(c, tmplName)
 	cachedKey := tmplName
-	var funcMap htmlTpl.FuncMap
-	if a.getFuncs != nil {
-		funcMap = htmlTpl.FuncMap(a.getFuncs())
-	}
-	if funcMap == nil {
-		funcMap = htmlTpl.FuncMap{}
-	}
-	for k, v := range funcs {
-		funcMap[k] = v
-	}
 	rel, ok := a.CachedRelation.GetOk(cachedKey)
 	if ok && rel.Tpl[0].Template != nil {
 		tmpl = rel.Tpl[0].Template
 		if a.debug {
 			a.logger.Debug(` `+tmplName, tmpl.DefinedTemplates())
 		}
-		funcMap = setFunc(rel.Tpl[0], funcMap)
-		tmpl.Funcs(funcMap)
 		return
 	}
 	var v interface{}
 	var shared bool
 	v, err, shared = a.sg.Do(cachedKey, func() (interface{}, error) {
-		return a.find(c, rel, tmplOriginalName, tmplName, cachedKey, funcMap)
+		var funcMap htmlTpl.FuncMap
+		if a.getFuncs != nil {
+			funcMap = htmlTpl.FuncMap(a.getFuncs())
+		}
+		if funcMap == nil {
+			funcMap = htmlTpl.FuncMap{}
+		}
+		return a.find(c, rel, tmplOriginalName, tmplName, tmplContent, cachedKey, funcMap)
 	})
 	if err != nil {
 		return
@@ -299,15 +289,17 @@ func (a *Standard) parse(c echo.Context, tmplName string) (tmpl *htmlTpl.Templat
 	rel, ok = a.CachedRelation.GetOk(cachedKey)
 	if ok && rel.Tpl[0].Template != nil {
 		tmpl = rel.Tpl[0].Template
-		funcMap = setFunc(rel.Tpl[0], funcMap)
-		tmpl.Funcs(funcMap)
 		return
 	}
 	return
 	//return a.find(c, rel, tmplOriginalName, tmplName, cachedKey, funcMap)
 }
 
-func (a *Standard) find(c echo.Context, rel *CcRel, tmplOriginalName string, tmplName string, cachedKey string, funcMap htmlTpl.FuncMap) (tmpl *htmlTpl.Template, err error) {
+var bytesBOM = []byte("\xEF\xBB\xBF")
+
+func (a *Standard) find(c echo.Context, rel *CcRel,
+	tmplOriginalName string, tmplName string, tmplContent func(string) ([]byte, error),
+	cachedKey string, funcMap htmlTpl.FuncMap) (tmpl *htmlTpl.Template, err error) {
 	if a.debug {
 		start := time.Now()
 		a.logger.Debug(` ◐ compile template: `, tmplName)
@@ -325,9 +317,9 @@ func (a *Standard) find(c echo.Context, rel *CcRel, tmplOriginalName string, tmp
 	}
 	funcMap = setFunc(rel.Tpl[0], funcMap)
 	t.Funcs(funcMap)
-	b, err := a.RawContent(tmplName)
+	b, err := tmplContent(tmplName)
 	if err != nil {
-		tmpl, _ = t.Parse(err.Error())
+		err = parseError(err, string(b))
 		return
 	}
 	content := string(b)
@@ -342,7 +334,7 @@ func (a *Standard) find(c echo.Context, rel *CcRel, tmplOriginalName string, tmp
 		extFile = a.TmplPath(c, extFile)
 		b, err = a.RawContent(extFile)
 		if err != nil {
-			tmpl, _ = t.Parse(err.Error())
+			err = parseError(err, string(b))
 			return
 		}
 		content = string(b)
@@ -359,8 +351,7 @@ func (a *Standard) find(c echo.Context, rel *CcRel, tmplOriginalName string, tmp
 	content = a.ContainsFunctionResult(c, tmplOriginalName, content, clips)
 	tmpl, err = t.Parse(content)
 	if err != nil {
-		content = fmt.Sprintf("Parse %v err: %v", tmplName, err)
-		tmpl, _ = t.Parse(content)
+		err = parseError(err, content)
 		return
 	}
 	for name, subc := range subcs {
@@ -375,7 +366,7 @@ func (a *Standard) find(c echo.Context, rel *CcRel, tmplOriginalName string, tmp
 		subc = a.Tag(`define "`+driver.CleanTemplateName(name)+`"`) + subc + a.Tag(`end`)
 		_, err = t.Parse(subc)
 		if err != nil {
-			t.Parse(fmt.Sprintf("Parse File %v err: %v", name, err))
+			err = parseError(err, subc)
 			return
 		}
 
@@ -397,7 +388,7 @@ func (a *Standard) find(c echo.Context, rel *CcRel, tmplOriginalName string, tmp
 		extc = a.Tag(`define "`+driver.CleanTemplateName(name)+`"`) + extc + a.Tag(`end`)
 		_, err = t.Parse(extc)
 		if err != nil {
-			t.Parse(fmt.Sprintf("Parse Block %v err: %v", name, err))
+			err = parseError(err, extc)
 			return
 		}
 		rel.Tpl[0].Blocks[name] = struct{}{}
@@ -409,7 +400,10 @@ func (a *Standard) find(c echo.Context, rel *CcRel, tmplOriginalName string, tmp
 }
 
 func (a *Standard) Fetch(tmplName string, data interface{}, c echo.Context) string {
-	content, _ := a.parse(c, tmplName)
+	content, err := a.parse(c, tmplName, a.RawContent)
+	if err != nil {
+		return err.Error()
+	}
 	return a.execute(content, data)
 }
 
@@ -583,6 +577,7 @@ func (a *Standard) RawContent(tmpl string) (b []byte, e error) {
 	if e != nil {
 		return
 	}
+	b = bytes.TrimPrefix(b, bytesBOM)
 	b = a.preprocess(b)
 	return
 }
@@ -655,4 +650,23 @@ func setFunc(tplInf *tplInfo, funcMap htmlTpl.FuncMap) htmlTpl.FuncMap {
 		return false
 	}
 	return funcMap
+}
+
+var regErrorFile = regexp.MustCompile(`template: ([^:]+)\:([\d]+)\:(?:([\d]+)\:)? `)
+
+func parseError(err error, sourceContent string) *echo.PanicError {
+	content := err.Error()
+	p := echo.NewPanicError(content, err)
+	matches := regErrorFile.FindAllStringSubmatch(content, -1)
+	for _, match := range matches {
+		line, _ := strconv.Atoi(match[2])
+		t := &echo.Trace{
+			File:   match[1],
+			Line:   line,
+			Func:   ``,
+			HasErr: true,
+		}
+		p.AddTrace(t, sourceContent)
+	}
+	return p
 }
