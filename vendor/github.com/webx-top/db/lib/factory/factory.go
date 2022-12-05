@@ -12,9 +12,10 @@ import (
 )
 
 var (
-	ErrNotFoundKey   = errors.New(`not found the key`)
-	ErrNotFoundTable = errors.New(`not found the table`)
-	ErrNotFoundField = errors.New(`not found the field`)
+	ErrNotFoundKey             = errors.New(`not found the key`)
+	ErrNotFoundTable           = errors.New(`not found the table`)
+	ErrNotFoundField           = errors.New(`not found the field`)
+	ErrNotConnectedAnyDatabase = errors.New(`not connected to any database`)
 )
 
 func New() *Factory {
@@ -128,7 +129,7 @@ func (f *Factory) SetCluster(index int, cluster *Cluster, names ...string) *Fact
 }
 
 func (f *Factory) SetIndexName(index int, name string) *Factory {
-	if len(f.databases) >= index {
+	if len(f.databases) <= index {
 		panic("[Factory.SetIndexName(" + fmt.Sprintf("%d, %q", index, name) + ")] index out of bounds: " + fmt.Sprintf("%d", len(f.databases)-1))
 	}
 	f.names[name] = index
@@ -151,7 +152,7 @@ func (f *Factory) Cluster(index int) *Cluster {
 		return f.databases[index]
 	}
 	if index == 0 {
-		panic(`Not connected to any database`)
+		panic(ErrNotConnectedAnyDatabase)
 	}
 	return f.Cluster(0)
 }
@@ -192,6 +193,18 @@ func (f *Factory) Tx(param *Param, ctx context.Context) error {
 	}
 	if rdb, ok := c.Master().(sqlbuilder.Database); ok {
 		return rdb.Tx(ctx, fn)
+	}
+	return db.ErrUnsupported
+}
+
+func (f *Factory) TxCallback(ctx context.Context, callback func(sqlbuilder.Tx) error, connID ...int) error {
+	var conn int
+	if len(connID) > 0 {
+		conn = connID[0]
+	}
+	c := f.Cluster(conn)
+	if rdb, ok := c.Master().(sqlbuilder.Database); ok {
+		return rdb.Tx(ctx, callback)
 	}
 	return db.ErrUnsupported
 }
