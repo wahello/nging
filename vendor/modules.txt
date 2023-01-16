@@ -70,9 +70,6 @@ github.com/admpub/color
 # github.com/admpub/confl v0.2.2
 ## explicit
 github.com/admpub/confl
-# github.com/admpub/copier v0.0.2
-## explicit; go 1.15
-github.com/admpub/copier
 # github.com/admpub/cr v0.0.2
 ## explicit; go 1.16
 github.com/admpub/cr
@@ -1268,22 +1265,6 @@ github.com/syndtr/goleveldb/leveldb/opt
 github.com/syndtr/goleveldb/leveldb/storage
 github.com/syndtr/goleveldb/leveldb/table
 github.com/syndtr/goleveldb/leveldb/util
-# github.com/tdewolff/minify v2.3.6+incompatible
-## explicit
-github.com/tdewolff/minify
-github.com/tdewolff/minify/css
-github.com/tdewolff/minify/html
-github.com/tdewolff/minify/js
-# github.com/tdewolff/parse v2.3.4+incompatible
-## explicit
-github.com/tdewolff/parse
-github.com/tdewolff/parse/buffer
-github.com/tdewolff/parse/css
-github.com/tdewolff/parse/html
-github.com/tdewolff/parse/js
-github.com/tdewolff/parse/strconv
-# github.com/tdewolff/test v1.0.6
-## explicit; go 1.12
 # github.com/tebeka/selenium v0.9.9
 ## explicit; go 1.12
 github.com/tebeka/selenium
@@ -1380,7 +1361,7 @@ github.com/webx-top/db/lib/reflectx
 github.com/webx-top/db/lib/sqlbuilder
 github.com/webx-top/db/mysql
 github.com/webx-top/db/sqlite
-# github.com/webx-top/echo v2.26.6+incompatible
+# github.com/webx-top/echo v2.33.1+incompatible
 ## explicit
 github.com/webx-top/echo
 github.com/webx-top/echo/code
@@ -1392,8 +1373,6 @@ github.com/webx-top/echo/engine/mock
 github.com/webx-top/echo/engine/standard
 github.com/webx-top/echo/formfilter
 github.com/webx-top/echo/handler/captcha
-github.com/webx-top/echo/handler/mvc/static/minify
-github.com/webx-top/echo/handler/mvc/static/resource
 github.com/webx-top/echo/handler/oauth2
 github.com/webx-top/echo/handler/pprof
 github.com/webx-top/echo/handler/sockjs
