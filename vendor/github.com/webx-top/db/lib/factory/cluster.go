@@ -64,7 +64,7 @@ type Cluster struct {
 func (c *Cluster) Master() (r db.Database) {
 	length := len(c.masters)
 	if length == 0 {
-		panic(`Not connected to any database`)
+		panic(ErrNotConnectedAnyDatabase)
 	}
 	if length > 1 {
 		r = c.masters[c.masterSelecter.Select(length)]
@@ -158,7 +158,7 @@ func (c *Cluster) SetMaster(index int, database db.Database) error {
 // SetSlave : set read-only database
 func (c *Cluster) SetSlave(index int, database db.Database) error {
 	c.setSlaveLogger(database)
-	if len(c.masters) > index {
+	if len(c.slaves) > index {
 		c.slaves[index] = database
 		return nil
 	}
