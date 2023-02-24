@@ -38,6 +38,10 @@ func SetCacher(cc Cacher) *Factory {
 	return DefaultFactory
 }
 
+func GetCacher() Cacher {
+	return DefaultFactory.Cacher()
+}
+
 func AddDB(databases ...db.Database) *Factory {
 	DefaultFactory.AddDB(databases...)
 	return DefaultFactory
@@ -92,6 +96,10 @@ func IndexByName(name string) int {
 
 func Tx(param *Param, ctx context.Context) error {
 	return DefaultFactory.Tx(param, ctx)
+}
+
+func TxCallback(ctx context.Context, callback func(sqlbuilder.Tx) error, connID ...int) error {
+	return DefaultFactory.TxCallback(ctx, callback, connID...)
 }
 
 func NewTx(ctx context.Context, args ...int) (*Transaction, error) {
@@ -172,6 +180,10 @@ func Count(param *Param) (int64, error) {
 	return DefaultFactory.Count(param)
 }
 
+func Exists(param *Param) (bool, error) {
+	return DefaultFactory.Exists(param)
+}
+
 // Write ==========================
 
 // Exec execute SQL
@@ -187,10 +199,18 @@ func Update(param *Param) error {
 	return DefaultFactory.Update(param)
 }
 
+func Updatex(param *Param) (int64, error) {
+	return DefaultFactory.Updatex(param)
+}
+
 func Upsert(param *Param, beforeUpsert ...func() error) (interface{}, error) {
 	return DefaultFactory.Upsert(param, beforeUpsert...)
 }
 
 func Delete(param *Param) error {
 	return DefaultFactory.Delete(param)
+}
+
+func Deletex(param *Param) (int64, error) {
+	return DefaultFactory.Deletex(param)
 }

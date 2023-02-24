@@ -36,6 +36,9 @@ import (
 	"time"
 	"unicode"
 	"unsafe"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 func Str2bytes(s string) []byte {
@@ -364,6 +367,12 @@ func StrIsNumeric(s string) bool {
 	return true
 }
 
+var titleCaser = cases.Title(language.Und, cases.NoLower)
+
+func Title(v string) string {
+	return titleCaser.String(v)
+}
+
 // GonicCase : webxTop => webx_top
 func GonicCase(name string) string {
 	s := make([]rune, 0, len(name)+3)
@@ -584,4 +593,24 @@ func CleanSpaceLine(b []byte) []byte {
 
 func CleanSpaceLineString(b string) string {
 	return reSpaceLine.ReplaceAllString(b, BreakLineString)
+}
+
+func AddRSlashes(s string) string {
+	var result []rune
+	for _, c := range []rune(s) {
+		switch c {
+		case '\n':
+			result = append(result, '\\')
+			result = append(result, 'n')
+		case '\r':
+			result = append(result, '\\')
+			result = append(result, 'r')
+		case '\t':
+			result = append(result, '\\')
+			result = append(result, 't')
+		default:
+			result = append(result, c)
+		}
+	}
+	return string(result)
 }
