@@ -64,15 +64,12 @@ github.com/admpub/ccs-gm/x509
 # github.com/admpub/checksum v1.0.1
 ## explicit; go 1.12
 github.com/admpub/checksum
-# github.com/admpub/color v1.8.0
+# github.com/admpub/color v1.8.1
 ## explicit; go 1.13
 github.com/admpub/color
 # github.com/admpub/confl v0.2.2
 ## explicit
 github.com/admpub/confl
-# github.com/admpub/copier v0.0.2
-## explicit; go 1.15
-github.com/admpub/copier
 # github.com/admpub/cr v0.0.2
 ## explicit; go 1.16
 github.com/admpub/cr
@@ -232,7 +229,7 @@ github.com/admpub/json5
 # github.com/admpub/license_gen v0.1.0
 ## explicit
 github.com/admpub/license_gen/lib
-# github.com/admpub/log v1.3.2
+# github.com/admpub/log v1.3.3
 ## explicit; go 1.15
 github.com/admpub/log
 # github.com/admpub/mahonia v0.0.0-20151019004008-c528b747d92d
@@ -650,7 +647,7 @@ github.com/go-playground/locales/currency
 # github.com/go-playground/universal-translator v0.18.0
 ## explicit; go 1.13
 github.com/go-playground/universal-translator
-# github.com/go-playground/validator/v10 v10.11.0
+# github.com/go-playground/validator/v10 v10.11.1
 ## explicit; go 1.13
 github.com/go-playground/validator/v10
 # github.com/go-redis/redis/v8 v8.11.5
@@ -682,7 +679,7 @@ github.com/gobwas/pool/pbytes
 ## explicit; go 1.15
 github.com/gobwas/ws
 github.com/gobwas/ws/wsutil
-# github.com/goccy/go-json v0.9.7
+# github.com/goccy/go-json v0.9.11
 ## explicit; go 1.12
 github.com/goccy/go-json
 github.com/goccy/go-json/internal/decoder
@@ -824,8 +821,8 @@ github.com/kavu/go_reuseport
 ## explicit; go 1.14
 github.com/kisielk/errcheck
 github.com/kisielk/errcheck/errcheck
-# github.com/klauspost/compress v1.15.4
-## explicit; go 1.16
+# github.com/klauspost/compress v1.15.12
+## explicit; go 1.17
 github.com/klauspost/compress
 github.com/klauspost/compress/flate
 github.com/klauspost/compress/fse
@@ -928,17 +925,17 @@ github.com/marten-seemann/qtls-go1-18
 # github.com/maruel/rs v1.1.0
 ## explicit; go 1.11
 github.com/maruel/rs
-# github.com/mattn/go-colorable v0.1.12
-## explicit; go 1.13
+# github.com/mattn/go-colorable v0.1.13
+## explicit; go 1.15
 github.com/mattn/go-colorable
-# github.com/mattn/go-isatty v0.0.14
-## explicit; go 1.12
+# github.com/mattn/go-isatty v0.0.16
+## explicit; go 1.15
 github.com/mattn/go-isatty
 # github.com/mattn/go-runewidth v0.0.13
 ## explicit; go 1.9
 github.com/mattn/go-runewidth
-# github.com/mattn/go-sqlite3 v1.14.13
-## explicit; go 1.12
+# github.com/mattn/go-sqlite3 v1.14.16
+## explicit; go 1.16
 github.com/mattn/go-sqlite3
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
 ## explicit
@@ -1216,6 +1213,9 @@ github.com/rwcarlsen/goexif/tiff
 # github.com/samuel/go-zookeeper v0.0.0-20201211165307-7117e9ea2414
 ## explicit
 github.com/samuel/go-zookeeper/zk
+# github.com/segmentio/fasthash v1.0.3
+## explicit; go 1.11
+github.com/segmentio/fasthash/fnv1a
 # github.com/shirou/gopsutil/v3 v3.22.4
 ## explicit; go 1.15
 github.com/shirou/gopsutil/v3/cpu
@@ -1268,22 +1268,6 @@ github.com/syndtr/goleveldb/leveldb/opt
 github.com/syndtr/goleveldb/leveldb/storage
 github.com/syndtr/goleveldb/leveldb/table
 github.com/syndtr/goleveldb/leveldb/util
-# github.com/tdewolff/minify v2.3.6+incompatible
-## explicit
-github.com/tdewolff/minify
-github.com/tdewolff/minify/css
-github.com/tdewolff/minify/html
-github.com/tdewolff/minify/js
-# github.com/tdewolff/parse v2.3.4+incompatible
-## explicit
-github.com/tdewolff/parse
-github.com/tdewolff/parse/buffer
-github.com/tdewolff/parse/css
-github.com/tdewolff/parse/html
-github.com/tdewolff/parse/js
-github.com/tdewolff/parse/strconv
-# github.com/tdewolff/test v1.0.6
-## explicit; go 1.12
 # github.com/tebeka/selenium v0.9.9
 ## explicit; go 1.12
 github.com/tebeka/selenium
@@ -1339,7 +1323,7 @@ github.com/volatiletech/inflect
 # github.com/volatiletech/strmangle v0.0.4
 ## explicit; go 1.14
 github.com/volatiletech/strmangle
-# github.com/webx-top/captcha v0.0.1
+# github.com/webx-top/captcha v0.1.0
 ## explicit; go 1.16
 github.com/webx-top/captcha
 # github.com/webx-top/chardet v0.0.1
@@ -1358,16 +1342,15 @@ github.com/webx-top/client/upload/watermark
 # github.com/webx-top/codec v0.2.0
 ## explicit
 github.com/webx-top/codec
-# github.com/webx-top/com v0.5.0
+# github.com/webx-top/com v0.8.1
 ## explicit
 github.com/webx-top/com
 github.com/webx-top/com/encoding/json
 github.com/webx-top/com/httpClientOptions
-# github.com/webx-top/db v1.21.1
+# github.com/webx-top/db v1.23.15
 ## explicit; go 1.16
 github.com/webx-top/db
 github.com/webx-top/db/internal/cache
-github.com/webx-top/db/internal/cache/hashstructure
 github.com/webx-top/db/internal/immutable
 github.com/webx-top/db/internal/sqladapter
 github.com/webx-top/db/internal/sqladapter/compat
@@ -1380,7 +1363,7 @@ github.com/webx-top/db/lib/reflectx
 github.com/webx-top/db/lib/sqlbuilder
 github.com/webx-top/db/mysql
 github.com/webx-top/db/sqlite
-# github.com/webx-top/echo v2.26.6+incompatible
+# github.com/webx-top/echo v2.31.0+incompatible
 ## explicit
 github.com/webx-top/echo
 github.com/webx-top/echo/code
@@ -1392,8 +1375,6 @@ github.com/webx-top/echo/engine/mock
 github.com/webx-top/echo/engine/standard
 github.com/webx-top/echo/formfilter
 github.com/webx-top/echo/handler/captcha
-github.com/webx-top/echo/handler/mvc/static/minify
-github.com/webx-top/echo/handler/mvc/static/resource
 github.com/webx-top/echo/handler/oauth2
 github.com/webx-top/echo/handler/pprof
 github.com/webx-top/echo/handler/sockjs
@@ -1424,7 +1405,7 @@ github.com/webx-top/echo-prometheus
 # github.com/webx-top/image v0.0.9
 ## explicit
 github.com/webx-top/image
-# github.com/webx-top/pagination v0.1.1
+# github.com/webx-top/pagination v0.2.1
 ## explicit
 github.com/webx-top/pagination
 # github.com/webx-top/poolx v0.0.0-20210912044716-5cfa2d58e380
@@ -1491,7 +1472,7 @@ gocloud.dev/internal/retry
 ## explicit; go 1.12
 goftp.io/server/v2
 goftp.io/server/v2/ratelimit
-# golang.org/x/crypto v0.0.0-20220518034528-6f7dac969898
+# golang.org/x/crypto v0.3.0
 ## explicit; go 1.17
 golang.org/x/crypto/acme
 golang.org/x/crypto/acme/autocert
@@ -1508,8 +1489,8 @@ golang.org/x/crypto/curve25519
 golang.org/x/crypto/curve25519/internal/field
 golang.org/x/crypto/ed25519
 golang.org/x/crypto/hkdf
+golang.org/x/crypto/internal/alias
 golang.org/x/crypto/internal/poly1305
-golang.org/x/crypto/internal/subtle
 golang.org/x/crypto/ocsp
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/salsa20
@@ -1538,12 +1519,12 @@ golang.org/x/image/webp
 ## explicit; go 1.11
 golang.org/x/lint
 golang.org/x/lint/golint
-# golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3
+# golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4
 ## explicit; go 1.17
 golang.org/x/mod/internal/lazyregexp
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/net v0.0.0-20220520000938-2e3eb7b945c2
+# golang.org/x/net v0.2.0
 ## explicit; go 1.17
 golang.org/x/net/bpf
 golang.org/x/net/context
@@ -1573,12 +1554,12 @@ golang.org/x/net/websocket
 golang.org/x/oauth2
 golang.org/x/oauth2/clientcredentials
 golang.org/x/oauth2/internal
-# golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
+# golang.org/x/sync v0.1.0
 ## explicit
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
 golang.org/x/sync/singleflight
-# golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
+# golang.org/x/sys v0.2.0
 ## explicit; go 1.17
 golang.org/x/sys/cpu
 golang.org/x/sys/execabs
@@ -1589,8 +1570,9 @@ golang.org/x/sys/windows/registry
 golang.org/x/sys/windows/svc
 golang.org/x/sys/windows/svc/eventlog
 golang.org/x/sys/windows/svc/mgr
-# golang.org/x/text v0.3.7
+# golang.org/x/text v0.4.0
 ## explicit; go 1.17
+golang.org/x/text/cases
 golang.org/x/text/collate
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap
@@ -1602,6 +1584,7 @@ golang.org/x/text/encoding/korean
 golang.org/x/text/encoding/simplifiedchinese
 golang.org/x/text/encoding/traditionalchinese
 golang.org/x/text/encoding/unicode
+golang.org/x/text/internal
 golang.org/x/text/internal/colltab
 golang.org/x/text/internal/language
 golang.org/x/text/internal/language/compact
@@ -1616,14 +1599,15 @@ golang.org/x/text/unicode/norm
 # golang.org/x/time v0.0.0-20220411224347-583f2d630306
 ## explicit
 golang.org/x/time/rate
-# golang.org/x/tools v0.1.10
-## explicit; go 1.17
+# golang.org/x/tools v0.1.12
+## explicit; go 1.18
 golang.org/x/tools/go/analysis
 golang.org/x/tools/go/ast/astutil
 golang.org/x/tools/go/ast/inspector
 golang.org/x/tools/go/gcexportdata
 golang.org/x/tools/go/internal/gcimporter
 golang.org/x/tools/go/internal/packagesdriver
+golang.org/x/tools/go/internal/pkgbits
 golang.org/x/tools/go/packages
 golang.org/x/tools/imports
 golang.org/x/tools/internal/analysisinternal
@@ -1635,7 +1619,6 @@ golang.org/x/tools/internal/fastwalk
 golang.org/x/tools/internal/gocommand
 golang.org/x/tools/internal/gopathwalk
 golang.org/x/tools/internal/imports
-golang.org/x/tools/internal/lsp/fuzzy
 golang.org/x/tools/internal/packagesinternal
 golang.org/x/tools/internal/typeparams
 golang.org/x/tools/internal/typesinternal
@@ -1762,7 +1745,7 @@ gopkg.in/tomb.v1
 # gopkg.in/yaml.v2 v2.4.0
 ## explicit; go 1.15
 gopkg.in/yaml.v2
-# gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+# gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
 # rsc.io/qr v0.2.0
